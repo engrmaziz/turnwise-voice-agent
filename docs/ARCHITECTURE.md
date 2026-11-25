@@ -76,7 +76,16 @@ Spans use `session_id`, `turn_id`, `generation`, `stage`, `model`, and `latency_
 
 `SessionStore` lives on the ASGI app container, created in `create_app` and passed into sessions. It is not a module global. The Prometheus `CollectorRegistry` is the same kind of object: one per app, so tests can build two apps in one process. The OpenTelemetry provider is also per app. The global tracer provider is left unset.
 
-`GET /health` and `GET /metrics` are the only routes. `python -m server` binds `TURNWISE_HTTP_HOST` and `TURNWISE_HTTP_PORT` (defaults `127.0.0.1:8000`). Compose sets the host to `0.0.0.0`.
+`GET /health` and `GET /metrics` are liveness and scrape. `GET /` serves the capture client. `TURNWISE_WS_PATH` (default `/v1/audio`) is a binary WebSocket:
+
+| Byte 0 | Body |
+|---|---|
+| `0x01` | uint32 LE length + UTF-8 JSON hello (`session_id`, `sample_rate_hz`, `frame_samples`, `aec`, `ns`) |
+| `0x02` | uint32 LE `frame_index` + PCM16 (640 bytes at 16 kHz / 20 ms) |
+| `0x03` | uint32 LE play-ack `frame_index` |
+| `0x04` | close |
+
+A hello whose rate is not 16 kHz, a PCM payload that is not 640 bytes, a decreasing `frame_index`, or a second hello closes the socket with code 1003. `python -m server` binds `TURNWISE_HTTP_HOST` and `TURNWISE_HTTP_PORT` (defaults `127.0.0.1:8000`). Compose sets the host to `0.0.0.0`.
 
 OTLP export uses a bounded batch queue (`otel_max_queue_size`, default 2048). If Jaeger is down, the SDK drops spans after that queue fills and the process stays up. `otel_enabled` can turn export off; spans are still created so stages have one code path.
 
@@ -94,6 +103,8 @@ Counters are created without a `_total` suffix. Prometheus adds it on the scrape
 | `turnwise_barge_in_total` | `Session.barge_in` ran. |
 | `turnwise_ttfa_seconds` | First played frame, filler included. No observations yet. |
 | `turnwise_ttfa_content_seconds` | First played non-filler frame. No observations yet. |
+| `turnwise_ws_frames_total` | Accepted WebSocket protocol messages. Label `direction`. |
+| `turnwise_ws_rejects_total` | Rejected WebSocket protocol messages. Label `reason`. |
 
 Logs go through structlog. `session_id`, `turn_id`, and `generation` are bound for the handler. Configured PII field names are HMAC-SHA256'd. A log key named `payload` is replaced with `omitted`. If `TURNWISE_PII_HASH_KEY` is unset, the process generates a key and logs `pii_hash_key_unset` once; hashes will not join across restarts.
 

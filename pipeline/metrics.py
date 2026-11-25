@@ -42,6 +42,8 @@ class StageMetrics:
     barge_in: Counter
     ttfa: Histogram
     ttfa_content: Histogram
+    ws_frames: Counter
+    ws_rejects: Counter
 
 
 def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
@@ -97,6 +99,18 @@ def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
             "turnwise_ttfa_content_seconds",
             "End of user speech to the first played non-filler audio frame.",
             buckets=_TTFA_BUCKETS,
+            registry=registry,
+        ),
+        ws_frames=Counter(
+            "turnwise_ws_frames",
+            "WebSocket protocol messages accepted.",
+            labelnames=("direction",),
+            registry=registry,
+        ),
+        ws_rejects=Counter(
+            "turnwise_ws_rejects",
+            "WebSocket protocol messages rejected.",
+            labelnames=("reason",),
             registry=registry,
         ),
     )

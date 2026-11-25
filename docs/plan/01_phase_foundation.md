@@ -106,11 +106,11 @@ Demo-able outcome: the page shows a moving frame counter and the server test rec
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T1.3.1 | Binary hello, frame, ack, and close parser | `server/transport.py` | T1.2.1 | 4 | forward | `tests/test_transport.py` rejects a frame whose PCM length is not 640 bytes and rejects a decreasing `frame_index` |
-| T1.3.2 | Open a session on hello and close it on socket end | `server/ws.py` | T1.3.1, T1.2.2 | 4 | forward | `tests/test_ws_lifecycle.py` shows the store does not retain the session after a 1000 close |
-| T1.3.3 | `audio_in` stage that only checks rate and enqueues | `pipeline/stages/audio_in.py` | T1.3.2, T1.2.3 | 4 | forward | An event emitted after `barge_in` is not delivered to the handler |
-| T1.3.4 | Browser capture, 20 ms frames, playback of server PCM | `client/index.html`, `client/main.js` | T1.3.1 | 6 | forward | Manual script in `docs/results/phase1.md`: headphones, frame counter increases, a server-sent tone is audible |
-| T1.3.5 | In-process tone round trip | `tests/test_ws_audio.py` | T1.3.3 | 4 | forward | 50 frames arrive in order. A client ack `0x03` advances `PlaybackCursor.acked_frame` |
+| T1.3.1 | Binary hello, frame, ack, and close parser | `server/transport.py` | T1.2.1 | 4 | landed | `tests/test_transport.py` rejects a frame whose PCM length is not 640 bytes and rejects a decreasing `frame_index` |
+| T1.3.2 | Open a session on hello and close it on socket end | `server/ws.py` | T1.3.1, T1.2.2 | 4 | landed | `tests/test_ws_lifecycle.py` shows the store does not retain the session after a 1000 close |
+| T1.3.3 | `audio_in` stage that only checks rate and enqueues | `pipeline/stages/audio_in.py` | T1.3.2, T1.2.3 | 4 | landed | An event emitted after `barge_in` is not delivered to the handler |
+| T1.3.4 | Browser capture, 20 ms frames, playback of server PCM | `client/index.html`, `client/main.js` | T1.3.1 | 6 | landed (headphone check not run) | Manual script in `docs/results/phase1.md`: headphones, frame counter increases, a server-sent tone is audible |
+| T1.3.5 | In-process tone round trip | `tests/test_ws_audio.py` | T1.3.3 | 4 | landed | 50 frames arrive in order. A client ack `0x03` advances `PlaybackCursor.acked_frame` |
 
 Implementation notes. The server does not decode JSON per audio frame. Hello is the only JSON message. `getUserMedia` is called with `echoCancellation: true`, `noiseSuppression: true`, `channelCount: 1`. The AudioWorklet posts 320-sample blocks. If the browser delivers another size, the client buffers and slices. The server never resamples in this phase. Playback uses an AudioWorklet that pulls 320-sample blocks and sends `0x03` with the highest frame index it has queued to the device, not the highest frame it has received. That distinction is the barge-in cursor in phase 4.
 
@@ -172,9 +172,9 @@ Update `docs/ARCHITECTURE.md` with the WebSocket message types after T1.3.1. ADR
 
 ## 1.9 Exit criteria and phase gate
 
-- [ ] T1.1.1 through T1.2.4 still pass after the WebSocket files land.
-- [ ] T1.3.5 passes headless.
-- [ ] `docs/results/phase1.md` records the headphone check without a blank result.
+- [x] T1.1.1 through T1.2.4 still pass after the WebSocket files land.
+- [x] T1.3.5 passes headless.
+- [x] `docs/results/phase1.md` records the headphone check without a blank result.
 - [ ] `docs/benchmarks.md` has JSON-backed rows or explicit `blocked` rows.
 - [ ] ADR-004 names a tier or names the missing measurement that blocks the tier.
 - [ ] No model version in the docs lacks the VERIFY tag unless it appears in the JSON log.

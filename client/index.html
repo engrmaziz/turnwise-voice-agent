@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Turnwise</title>
+    <style>
+      body { font: 16px/1.4 sans-serif; max-width: 40rem; margin: 2rem auto; }
+      #log { white-space: pre-wrap; background: #111; color: #eee; padding: 1rem; min-height: 8rem; }
+      button { font-size: 1rem; padding: 0.4rem 0.8rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Turnwise</h1>
+    <p>
+      PCM16, 16 kHz, 20 ms frames. The browser requests
+      <code>echoCancellation</code> and <code>noiseSuppression</code>. Headphones
+      required until server AEC exists.
+    </p>
+    <p>Frame counter: <strong id="frames">0</strong> · AEC: <span id="aec">?</span> · NS: <span id="ns">?</span></p>
+    <button id="start" type="button">Start</button>
+    <button id="stop" type="button" disabled>Stop</button>
+    <div id="log"></div>
+    <script src="/main.js"></script>
+  </body>
+</html>

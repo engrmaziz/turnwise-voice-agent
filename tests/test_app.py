@@ -9,6 +9,9 @@ from server.config import Settings
 def test_health_and_empty_ttfa_histogram(settings: Settings) -> None:
     app = create_app(settings)
     with TestClient(app) as client:
+        home = client.get("/")
+        assert home.status_code == 200
+        assert "text/html" in home.headers["content-type"]
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json() == {"status": "ok", "service": "turnwise-test"}
@@ -21,6 +24,8 @@ def test_health_and_empty_ttfa_histogram(settings: Settings) -> None:
     assert "turnwise_barge_in_total" in body
     assert "turnwise_ttfa_seconds" in body
     assert "turnwise_ttfa_content_seconds" in body
+    assert "turnwise_ws_frames_total" in body
+    assert "turnwise_ws_rejects_total" in body
     assert "turnwise_ttfa_seconds_count 0.0" in body
     assert "turnwise_ttfa_content_seconds_count 0.0" in body
 

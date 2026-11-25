@@ -58,6 +58,8 @@ uv run pytest
 uv run python -m server
 ```
 
+- `GET http://127.0.0.1:8000/` — capture client (needs a microphone; wear headphones)
+- `WS  http://127.0.0.1:8000/v1/audio` — binary PCM16 frames
 - `GET http://127.0.0.1:8000/health`
 - `GET http://127.0.0.1:8000/metrics`
 
@@ -76,7 +78,7 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | Phase 0 scope (this README, SLOs, ADRs) | done |
 | M1.1 tooling, config, CI, telemetry | done |
 | M1.2 event bus, session, bounded stages | done |
-| M1.3 WebSocket PCM16 + browser client | not started |
+| M1.3 WebSocket PCM16 + browser client | done (headphone check not run; see `docs/results/phase1.md`) |
 | M1.4 hardware benchmarks | not started |
 | Phases 2–10 | not started |
 

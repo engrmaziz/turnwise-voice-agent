@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     metrics_enabled: bool = True
     pii_hash_key: SecretStr | None = None
     pii_fields: str = "patient_name,name,dob,date_of_birth,phone"
+    ws_path: str = "/v1/audio"
+    ws_sample_rate_hz: int = 16000
+    ws_frame_ms: int = 20
+    ws_max_sessions: int = 8
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -69,11 +73,33 @@ class Settings(BaseSettings):
             raise ValueError("http_port must be between 1 and 65535")
         return value
 
-    @field_validator("stage_queue_maxsize", "otel_max_queue_size")
+    @field_validator("stage_queue_maxsize", "otel_max_queue_size", "ws_max_sessions")
     @classmethod
     def at_least_one(cls, value: int) -> int:
         if value < 1:
             raise ValueError("queue sizes must be >= 1")
+        return value
+
+    @field_validator("ws_path")
+    @classmethod
+    def ws_path_absolute(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped.startswith("/"):
+            raise ValueError("ws_path must start with /")
+        return stripped
+
+    @field_validator("ws_sample_rate_hz")
+    @classmethod
+    def pcm16k(cls, value: int) -> int:
+        if value != 16000:
+            raise ValueError("ws_sample_rate_hz must be 16000 in this milestone")
+        return value
+
+    @field_validator("ws_frame_ms")
+    @classmethod
+    def twenty_or_forty(cls, value: int) -> int:
+        if value not in {20, 40}:
+            raise ValueError("ws_frame_ms must be 20 or 40")
         return value
 
     @field_validator("stage_put_timeout_s", "otel_export_timeout_s")
@@ -86,6 +112,14 @@ class Settings(BaseSettings):
     @property
     def pii_field_names(self) -> frozenset[str]:
         return frozenset(part.strip() for part in self.pii_fields.split(",") if part.strip())
+
+    @property
+    def ws_frame_samples(self) -> int:
+        return self.ws_sample_rate_hz * self.ws_frame_ms // 1000
+
+    @property
+    def ws_pcm_bytes(self) -> int:
+        return self.ws_frame_samples * 2
 
 
 @lru_cache(maxsize=1)

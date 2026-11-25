@@ -1,19 +1,27 @@
 """HTTP surface for this milestone: liveness and Prometheus scrape."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, WebSocket
+from fastapi.responses import FileResponse
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest
 from pydantic import BaseModel
 
 from pipeline.metrics import StageMetrics, build_stage_metrics
 from pipeline.session import SessionStore
+from pipeline.stages.audio_in import AudioInHandler
 from server.config import Settings, get_settings
 from server.log_setup import configure_logging
 from server.pii import PiiRedactor
+from server.playback import ClosedCallSnapshot
 from server.telemetry import Tracing, start_tracing
+
+
+def new_audio_handler() -> AudioInHandler:
+    return AudioInHandler()
 
 
 class HealthResponse(BaseModel):
@@ -31,6 +39,8 @@ class AppContainer:
     sessions: SessionStore
     redactor: PiiRedactor
     tracing: Tracing | None = None
+    closed_snapshots: list[ClosedCallSnapshot] | None = None
+    make_audio_handler: Callable[[], AudioInHandler] = field(default=new_audio_handler)
 
 
 class TurnwiseApp(FastAPI):
@@ -58,6 +68,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         metrics=metrics,
         sessions=SessionStore(on_barge_in=lambda: metrics.barge_in.inc()),
         redactor=PiiRedactor(resolved),
+        closed_snapshots=[],
     )
 
     @asynccontextmanager
@@ -73,6 +84,21 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
                 tracing.shutdown()
 
     app = TurnwiseApp(container=container, lifespan=lifespan)
+    client_dir = Path(__file__).resolve().parent.parent / "client"
+
+    @app.websocket(resolved.ws_path)
+    async def audio_socket(websocket: WebSocket) -> None:
+        from server.ws import handle_audio_socket
+
+        await handle_audio_socket(websocket, app.container)
+
+    @app.get("/")
+    async def ui() -> FileResponse:
+        return FileResponse(client_dir / "index.html")
+
+    @app.get("/main.js")
+    async def ui_js() -> FileResponse:
+        return FileResponse(client_dir / "main.js", media_type="text/javascript")
 
     @app.get("/health", response_model=HealthResponse)
     async def health(request: Request) -> HealthResponse:

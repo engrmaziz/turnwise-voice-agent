@@ -128,6 +128,12 @@ class SessionStore:
         """Drop the session. Close its stages first; late events are then misrouted."""
         self._sessions.pop(session_id, None)
 
+    def __len__(self) -> int:
+        return len(self._sessions)
+
+    def __contains__(self, session_id: object) -> bool:
+        return isinstance(session_id, str) and session_id in self._sessions
+
 
 def _noop() -> None:
     return
