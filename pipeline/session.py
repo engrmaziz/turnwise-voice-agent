@@ -1,0 +1,133 @@
+"""Per-call dialogue clock: turn, generation, and speaking-task cancellation."""
+
+import asyncio
+import time
+from collections.abc import Callable, Mapping
+
+from pipeline.errors import SessionNotFoundError
+from pipeline.event import Event, EventKind, JsonValue
+
+
+class Session:
+    """One phone call. Generation is the cancellation epoch for this call.
+
+    ``barge_in`` increments generation and turn together, then cancels speaking
+    tasks. There is no await between the increment and the cancels, so a task
+    that resumes afterwards observes the new generation. The turn increment
+    keeps the interrupted agent utterance and the caller's new speech in
+    different traces.
+
+    ``session_id`` must be an opaque id. Names, dates of birth, and phone
+    numbers do not belong in it; logs and spans record it in the clear.
+    """
+
+    __slots__ = ("_generation", "_on_barge_in", "_session_id", "_speaking", "_turn_id")
+
+    def __init__(self, session_id: str, *, on_barge_in: Callable[[], None] | None = None) -> None:
+        if not session_id:
+            raise ValueError("session_id must be non-empty")
+        self._session_id = session_id
+        self._turn_id = 0
+        self._generation = 0
+        self._speaking: set[asyncio.Task[None]] = set()
+        self._on_barge_in = on_barge_in if on_barge_in is not None else _noop
+
+    @property
+    def session_id(self) -> str:
+        return self._session_id
+
+    @property
+    def turn_id(self) -> int:
+        return self._turn_id
+
+    @property
+    def generation(self) -> int:
+        return self._generation
+
+    @property
+    def speaking_task_count(self) -> int:
+        return len(self._speaking)
+
+    def is_stale(self, event: Event) -> bool:
+        """True when the event is from another call or a superseded generation."""
+        return event.session_id != self._session_id or event.generation != self._generation
+
+    def next_turn(self) -> int:
+        """Open a new turn without cancelling in-flight speech."""
+        self._turn_id += 1
+        return self._turn_id
+
+    def barge_in(self) -> int:
+        """Supersede the current generation and cancel registered speaking tasks."""
+        self._generation += 1
+        self._turn_id += 1
+        tasks = tuple(self._speaking)
+        self._speaking.clear()
+        for task in tasks:
+            task.cancel()
+        self._on_barge_in()
+        return self._generation
+
+    def track_speaking(self, task: asyncio.Task[None]) -> None:
+        """Register a task that ``barge_in`` must cancel.
+
+        Already-finished tasks are ignored so a late register cannot resurrect
+        a done task into the speaking set.
+        """
+        if task.done():
+            return
+        self._speaking.add(task)
+        task.add_done_callback(self._discard_speaking)
+
+    def create_event(
+        self,
+        kind: EventKind,
+        payload: Mapping[str, JsonValue] | None = None,
+        *,
+        frame_index: int | None = None,
+    ) -> Event:
+        """Stamp an event with this session's current turn and generation."""
+        body: Mapping[str, JsonValue] = {} if payload is None else payload
+        return Event(
+            kind=kind,
+            session_id=self._session_id,
+            turn_id=self._turn_id,
+            generation=self._generation,
+            frame_index=frame_index,
+            payload=body,
+            ts_monotonic=time.monotonic(),
+        )
+
+    def _discard_speaking(self, task: asyncio.Task[None]) -> None:
+        self._speaking.discard(task)
+
+
+class SessionStore:
+    """Sessions owned by one process. Constructed by the app and passed in."""
+
+    __slots__ = ("_on_barge_in", "_sessions")
+
+    def __init__(self, *, on_barge_in: Callable[[], None] | None = None) -> None:
+        self._sessions: dict[str, Session] = {}
+        self._on_barge_in = on_barge_in
+
+    def open(self, session_id: str) -> Session:
+        if session_id in self._sessions:
+            raise ValueError(f"session already open: {session_id}")
+        session = Session(session_id, on_barge_in=self._on_barge_in)
+        self._sessions[session_id] = session
+        return session
+
+    def get(self, session_id: str) -> Session:
+        try:
+            return self._sessions[session_id]
+        except KeyError as exc:
+            raise SessionNotFoundError(session_id) from exc
+
+    def close(self, session_id: str) -> None:
+        """Drop the session. Close its stages first; late events are then misrouted."""
+        self._sessions.pop(session_id, None)
+
+
+def _noop() -> None:
+    return

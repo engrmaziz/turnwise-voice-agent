@@ -1,0 +1,96 @@
+[project]
+name = "turnwise"
+version = "0.1.0"
+description = "Local full-duplex streaming voice agent. This release is the event-bus foundation."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "opentelemetry-api>=1.27.0",
+  "opentelemetry-exporter-otlp-proto-grpc>=1.27.0",
+  "opentelemetry-sdk>=1.27.0",
+  "prometheus-client>=0.21.0",
+  "pydantic>=2.6.0",
+  "pydantic-settings>=2.6.0",
+  "structlog>=24.4.0",
+  "uvicorn>=0.32.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.27.0",
+  "mypy>=1.13.0",
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+  "ruff>=0.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "server",
+  "pipeline",
+  "models",
+  "dialogue",
+  "nlp",
+  "tools",
+  "evals",
+  "training",
+]
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = [
+  "server",
+  "pipeline",
+  "models",
+  "dialogue",
+  "nlp",
+  "tools",
+  "evals",
+  "training",
+  "tests",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF", "ANN", "A", "C4", "PTH", "RET"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "dialogue",
+  "evals",
+  "models",
+  "nlp",
+  "pipeline",
+  "server",
+  "tools",
+  "training",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+mypy_path = "."
+warn_unused_configs = true
+packages = [
+  "server",
+  "pipeline",
+  "models",
+  "dialogue",
+  "nlp",
+  "tools",
+  "evals",
+  "training",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]
+addopts = "-q"

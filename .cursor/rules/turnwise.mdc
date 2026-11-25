@@ -1,0 +1,67 @@
+---
+description: Turnwise core engineering rules — always apply
+alwaysApply: true
+---
+
+# Turnwise — Engineering Rules
+
+## Project
+Turnwise is a fully local, full-duplex streaming voice agent (clinic receptionist domain:
+book/reschedule/cancel appointments, FAQ, urgent escalation). $0 to run. Production-grade.
+Target: sub-800ms time-to-first-audio (TTFA) P50 on consumer hardware.
+
+## Architecture invariants (never violate)
+1. Event-driven pipeline: one asyncio task per stage, connected by BOUNDED asyncio.Queues.
+   Every event carries (session_id, turn_id, generation). Stages drop events whose
+   generation != session.generation. Barge-in increments generation and cancels speaking tasks.
+2. The dialogue FSM is the single source of truth for state. The LLM NEVER mutates state,
+   performs date arithmetic, checks availability, writes bookings, or decides urgency.
+   LLM output is a PROPOSAL validated exactly like NLU output.
+3. LLM structured output uses grammar-constrained decoding (GBNF/JSON schema). No regex-parsing of free text.
+4. Models run as shared worker pools (ASR, TTS, ONNX small models, LLM client), never per-session instances.
+5. Closed-set entities (doctors, services) are resolved against the catalog via phonetic + string
+   similarity. Raw ASR text is never written to the DB.
+6. Date/time normalization and relative-date resolution are deterministic (ITN + session clock/timezone).
+7. Urgent-symptom detection has a deterministic keyword path that alone is sufficient to escalate.
+8. Every external call (model worker, tool, DB) has a timeout and a defined fallback.
+
+## Banned patterns (reject these in your own output)
+- TODO stubs, `pass` placeholders, `NotImplementedError`, fake/mock implementations presented as real.
+  If something can't be implemented now, say so explicitly and stop — do not fake it.
+- Blocking calls inside async code (sync model inference, time.sleep, sync file/DB IO) —
+  offload with run_in_executor or a dedicated worker.
+- Unbounded queues, unbounded retries, bare `except:`, swallowed exceptions.
+- print() for logging. Use structured logging (structlog) with session_id/turn_id bound.
+- Global mutable state outside explicit, documented singletons (model pools).
+- Hardcoded paths, thresholds, or model names — all go in typed config (pydantic-settings).
+- LangChain/LlamaIndex-style framework glue. Write the pipeline directly.
+- "Simplified for demo purposes" implementations.
+
+## Code standards
+- Python 3.11+, full type hints, `mypy --strict` clean, ruff clean.
+- dataclasses(slots=True) or pydantic models for all events/schemas.
+- Small modules with single responsibility; dependency injection for workers/tools (testability).
+- Comments explain WHY, not what. Docstrings on public interfaces only.
+- Async-first. Cancellation-safe: every task handles CancelledError and cleans up.
+
+## Observability (required for every stage)
+- OpenTelemetry span per stage per turn, attributes: session_id, turn_id, generation, model, latency_ms.
+- Prometheus metrics: per-stage latency histograms, queue depths, error counters, TTFA histogram.
+- PII (names, DOB, phone) is hashed/redacted in logs and traces.
+
+## Definition of Done (a task is NOT done until all are true)
+1. Implementation complete — no stubs, no placeholders.
+2. Unit tests for logic + at least one integration test through the real pipeline stage.
+   Tests cover failure paths (timeout, cancellation, malformed input, stale generation).
+3. Latency measured and reported for anything on the hot path.
+4. Metrics + tracing wired.
+5. Config added to typed settings with documented defaults.
+6. docs/ updated: what was built, design decisions, measured numbers, known limitations.
+7. If a significant design choice was made: an ADR in docs/adr/.
+
+## Working mode
+- Before writing code for any non-trivial task: output a plan (files, interfaces, data flow,
+  failure modes, test plan) and wait for approval.
+- Prefer finishing one component fully over touching many partially.
+- If a requirement is ambiguous or conflicts with these rules, ASK — do not guess silently.
+- When you claim a number (latency, accuracy), it must come from code that was actually run.
