@@ -26,6 +26,9 @@ def test_health_and_empty_ttfa_histogram(settings: Settings) -> None:
     assert "turnwise_ttfa_content_seconds" in body
     assert "turnwise_ws_frames_total" in body
     assert "turnwise_ws_rejects_total" in body
+    assert "turnwise_audio_resample_seconds" in body
+    assert "turnwise_vad_prob" in body
+    assert "turnwise_audio_dead_total" in body
     assert "turnwise_ttfa_seconds_count 0.0" in body
     assert "turnwise_ttfa_content_seconds_count 0.0" in body
 

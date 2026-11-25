@@ -4,7 +4,7 @@ A fully local, streaming voice agent where deterministic dialogue control owns c
 
 Clinic receptionist: book, reschedule, and cancel appointments, answer FAQs, escalate urgent symptoms, hand off to a human. $0 to run after the hardware you already own. No hosted speech or model API on the default path.
 
-**This checkout is Phase 0 plus the event-bus skeleton (M1.1, M1.2).** There is no microphone path, recognizer, dialogue machine, or TTS yet. `GET /health` and `GET /metrics` work. Product SLOs are TARGETS and unmet.
+**This checkout is Phase 0 through Phase 2.** The event bus, PCM16 WebSocket, one resample at ingress, Silero VAD, and the AEC barge-in gate are in. There is no recognizer, dialogue machine, or TTS yet. `GET /health` and `GET /metrics` work. Product SLOs are TARGETS and unmet.
 
 ## Scope
 
@@ -28,7 +28,7 @@ HIPAA certification or a compliance claim. Server-side acoustic echo cancellatio
 
 ## SLO targets (unmet)
 
-Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number below has been measured on a call. The only measured latency in this repo is an in-process stage hop (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)).
+Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number below has been measured on a call. Measured latencies so far: in-process stage hop, resample p50, and Silero VAD p50 (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/results/phase2.md`](docs/results/phase2.md)).
 
 | Metric | Target |
 |---|---|
@@ -54,10 +54,13 @@ Python 3.11+, [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync --all-groups
+uv run python scripts/download_silero_vad.py
 uv run pytest
 uv run python -m evals.bench
 uv run python -m server
 ```
+
+Silero weights are gitignored. Without the download script the process uses the energy-gate fallback and increments `turnwise_vad_fallback`.
 
 - `GET http://127.0.0.1:8000/` — capture client (needs a microphone; wear headphones)
 - `WS  http://127.0.0.1:8000/v1/audio` — binary PCM16 frames
@@ -81,6 +84,10 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M1.2 event bus, session, bounded stages | done |
 | M1.3 WebSocket PCM16 + browser client | done (headphone check not run; see `docs/results/phase1.md`) |
 | M1.4 hardware benchmarks | done (model rows blocked until weights exist; see `docs/benchmarks.md`) |
-| Phases 2–10 | not started |
+| M2.1 resample once + frame clock | done |
+| M2.2 AEC flag gates barge-in | done (speaker row not run; see `docs/results/phase2.md`) |
+| M2.3 Silero VAD, hysteresis, pre-roll | done |
+| M2.4 silence / clip quality | done |
+| Phases 3–10 | not started |
 
 Roadmap with acceptance lines: [`docs/ROADMAP.md`](docs/ROADMAP.md).

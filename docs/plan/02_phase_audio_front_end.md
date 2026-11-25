@@ -53,9 +53,9 @@ Demo-able outcome: an 8 kHz fixture comes out at twice the sample count, and a s
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T2.1.1 | Linear resample of mono PCM16, tested against a sine at 8 kHz and 48 kHz | `pipeline/audio/format.py` | T1.3.3 | 4 | forward | `tests/test_resample.py` peak frequency within 1 bin of 440 Hz after resample to 16 kHz |
-| T2.1.2 | Server frame clock and rejection of gaps larger than 2 frames | `pipeline/audio/clock.py` | T2.1.1 | 2 | forward | `tests/test_clock.py` closes the logical stream on index 0,1,4 |
-| T2.1.3 | Wire resample once at ingress | `pipeline/stages/audio_in.py` | T2.1.2 | 3 | forward | Grep test `tests/test_no_second_resample.py` fails if `resample_mono_pcm16` is imported outside `audio_in` and `format.py` |
+| T2.1.1 | Linear resample of mono PCM16, tested against a sine at 8 kHz and 48 kHz | `pipeline/audio/format.py` | T1.3.3 | 4 | landed | `tests/test_resample.py` peak frequency within 1 bin of 440 Hz after resample to 16 kHz |
+| T2.1.2 | Server frame clock and rejection of gaps larger than 2 frames | `pipeline/audio/clock.py` | T2.1.1 | 2 | landed | `tests/test_clock.py` closes the logical stream on index 0,1,4 |
+| T2.1.3 | Wire resample once at ingress | `pipeline/stages/audio_in.py` | T2.1.2 | 3 | landed | Grep test `tests/test_no_second_resample.py` fails if `resample_mono_pcm16` is imported outside `audio_in` and `format.py` |
 
 Implementation notes. Use a small linear interpolator, not a hidden dependency, unless T1.4.5's tier already has a resample library pinned in the JSON. If a library is used, the test still checks the sine. Do not resample per stage to "fix" a model that wanted 16 kHz. Models that want another rate get a view inside their pool, and that view is not written back to the bus.
 
@@ -72,9 +72,9 @@ Demo-able outcome: a hello with `aec: false` is accepted for capture, the sessio
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T2.2.1 | Pass constraint results back from `getUserMedia` | `client/main.js` | T1.3.4 | 3 | forward | The hello JSON includes the boolean `MediaTrackSettings` actually returned, not the requested ideal |
-| T2.2.2 | Store the flag on the session | `pipeline/session.py`, `server/ws.py` | T2.2.1 | 2 | forward | `tests/test_aec_flag.py` reads `session.barge_in_enabled is False` when the hello says false |
-| T2.2.3 | Document the speaker limitation and assert the flag gates barge-in | `docs/results/phase2.md` | T2.2.2 | 2 | forward | A direct `session.barge_in` from the VAD hook does not run when the flag is false. The test calls the hook |
+| T2.2.1 | Pass constraint results back from `getUserMedia` | `client/main.js` | T1.3.4 | 3 | landed | The hello JSON includes the boolean `MediaTrackSettings` actually returned, not the requested ideal |
+| T2.2.2 | Store the flag on the session | `pipeline/session.py`, `server/ws.py` | T2.2.1 | 2 | landed | `tests/test_aec_flag.py` reads `session.barge_in_enabled is False` when the hello says false |
+| T2.2.3 | Document the speaker limitation and assert the flag gates barge-in | `docs/results/phase2.md` | T2.2.2 | 2 | landed (speaker row not run) | A direct `session.barge_in` from the VAD hook does not run when the flag is false. The test calls the hook |
 
 Implementation notes. `getUserMedia` can accept the constraint and still report `echoCancellation: false` after the fact. The client must read `track.getSettings()` after the promise resolves. Server-side AEC is a non-goal. The spoken fallback when the flag is false is the template id `headphones_required`, played from the phrase cache once that cache exists. Until phase 7, the server sends the raw PCM of a single pre-rendered file in `client/prompts/headphones.pcm` if the file is present, otherwise it logs `prompt_missing` and continues without barge-in. The log line is the failure, not a silent enable.
 
@@ -91,10 +91,10 @@ Demo-able outcome: a fixture with 400 ms of speech preceded by a known tone incl
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T2.3.1 | ONNX VAD pool, timeout, generation check | `models/vad_pool.py` | T1.4.1 | 6 | forward | A job submitted at generation 0 is dropped when the session is at generation 1 before the result is applied. Timeout uses `vad_timeout_ms` default 30 |
-| T2.3.2 | Hysteresis state machine | `pipeline/stages/vad.py` | T2.3.1 | 4 | forward | `tests/test_vad_hysteresis.py`: one frame at 0.99 does not start speech. 200 ms at 0.6 does |
-| T2.3.3 | Pre-roll ring | `pipeline/audio/preroll.py` | T2.1.2 | 3 | forward | `tests/test_preroll.py` snapshot length equals 500 ms plus the triggering frame, within one frame |
-| T2.3.4 | Noise versus tone fixture | `tests/test_vad_noise.py` | T2.3.2, T2.3.3 | 4 | forward | MUSAN-or-local noise at the level documented in the fixture header causes fewer starts than a counted speech fixture. The counts are written to `docs/results/phase2.md` by the test output, not typed in advance |
+| T2.3.1 | ONNX VAD pool, timeout, generation check | `models/vad_pool.py` | T1.4.1 | 6 | landed | A job submitted at generation 0 is dropped when the session is at generation 1 before the result is applied. Timeout uses `vad_timeout_ms` default 30 |
+| T2.3.2 | Hysteresis state machine | `pipeline/stages/vad.py` | T2.3.1 | 4 | landed | `tests/test_vad_hysteresis.py`: one frame at 0.99 does not start speech. 200 ms at 0.6 does |
+| T2.3.3 | Pre-roll ring | `pipeline/audio/preroll.py` | T2.1.2 | 3 | landed | `tests/test_preroll.py` snapshot length equals 500 ms plus the triggering frame, within one frame |
+| T2.3.4 | Noise versus tone fixture | `tests/test_vad_noise.py` | T2.3.2, T2.3.3 | 4 | landed | MUSAN-or-local noise at the level documented in the fixture header causes fewer starts than a counted speech fixture. The counts are written to `docs/results/phase2.md` by the test output, not typed in advance |
 
 Implementation notes. Silero's window is 512 samples at 16 kHz in current public builds. VERIFY AT PHASE 1 BENCHMARK against the ONNX file's metadata. If the file wants 512 and the bus frame is 320, the VAD stage buffers to 512 and does not change the bus frame. The RNN state is per session and resets on `session_end` and on barge-in generation change so a new utterance does not inherit the old hidden state. Blocking the event loop with ONNX is forbidden: `vad_pool` runs inference in an executor and the stage awaits the future with a timeout.
 
@@ -113,9 +113,9 @@ Demo-able outcome: three seconds of zeros emit `audio_dead` once and move the se
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T2.4.1 | RMS and clip fraction over a window | `pipeline/audio/quality.py` | T2.1.1 | 3 | forward | `tests/test_audio_quality.py` zeros cross `audio_silence_window_s`. A buffer with 2% samples at 32767 crosses `audio_clip_fraction` |
-| T2.4.2 | Gauges and a single close event | `pipeline/stages/vad.py` | T2.4.1 | 2 | forward | The close event is emitted once, not once per frame |
-| T2.4.3 | Quality score persisted on the session for the trace | `pipeline/session.py` | T2.4.2 | 2 | forward | Span attribute `audio_quality` is `dead`, `clipped`, or `ok`. The attribute is not a transcript |
+| T2.4.1 | RMS and clip fraction over a window | `pipeline/audio/quality.py` | T2.1.1 | 3 | landed | `tests/test_audio_quality.py` zeros cross `audio_silence_window_s`. A buffer with 2% samples at 32767 crosses `audio_clip_fraction` |
+| T2.4.2 | Gauges and a single close event | `pipeline/stages/vad.py` | T2.4.1 | 2 | landed | The close event is emitted once, not once per frame |
+| T2.4.3 | Quality score persisted on the session for the trace | `pipeline/session.py` | T2.4.2 | 2 | landed | Span attribute `audio_quality` is `dead`, `clipped`, or `ok`. The attribute is not a transcript |
 
 Implementation notes. Score is the worst flag seen in the session: `dead` outranks `clipped`, `clipped` outranks `ok`. RMS uses integer squares and a shift to stay inside int64. The threshold 0.005 is a STARTING POINT on the int16 full scale (about 164 counts). T2.4.1's test uses constructed buffers so the threshold can move without rewriting the assertion: the test passes the threshold in, and the default is what production uses.
 
@@ -155,13 +155,13 @@ A too-low speech threshold starts on air-conditioner noise and inflates false ba
 
 ## 2.9 Exit criteria and phase gate
 
-- [ ] Resample is referenced only from ingress.
-- [ ] Pre-roll test passes.
-- [ ] Hysteresis test passes.
-- [ ] AEC false disables barge-in.
-- [ ] Dead-mic test emits one close.
-- [ ] `docs/results/phase2.md` has measured rows or explicit blocked rows.
-- [ ] ONNX inference is not called on the event loop. The test patches the executor and fails if `run` is called inline.
+- [x] Resample is referenced only from ingress.
+- [x] Pre-roll test passes.
+- [x] Hysteresis test passes.
+- [x] AEC false disables barge-in.
+- [x] Dead-mic test emits one close.
+- [x] `docs/results/phase2.md` has measured rows or explicit blocked rows.
+- [x] ONNX inference is not called on the event loop. The test patches the executor and fails if `run` is called inline.
 
 ## 2.10 Portfolio artifacts
 

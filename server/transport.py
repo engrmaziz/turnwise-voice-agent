@@ -68,17 +68,15 @@ def parse_message(
     data: bytes,
     *,
     expected_pcm_bytes: int,
-    expected_sample_rate_hz: int,
-    expected_frame_samples: int,
+    allowed_sample_rates: frozenset[int],
+    frame_ms: int,
 ) -> ParsedMessage:
     """Decode one binary WebSocket payload. Incomplete or extra bytes are errors."""
     if not data:
         raise ProtocolError("empty_frame")
     kind = data[0]
     if kind == MsgType.HELLO:
-        return HelloMessage(
-            hello=_parse_hello(data[1:], expected_sample_rate_hz, expected_frame_samples)
-        )
+        return HelloMessage(hello=_parse_hello(data[1:], allowed_sample_rates, frame_ms))
     if kind == MsgType.PCM:
         return _parse_pcm(data[1:], expected_pcm_bytes)
     if kind == MsgType.ACK:
@@ -111,7 +109,7 @@ def encode_close() -> bytes:
     return bytes([MsgType.CLOSE])
 
 
-def _parse_hello(body: bytes, sample_rate_hz: int, frame_samples: int) -> AudioHello:
+def _parse_hello(body: bytes, allowed_sample_rates: frozenset[int], frame_ms: int) -> AudioHello:
     if len(body) < 4:
         raise ProtocolError("hello_truncated")
     length = int.from_bytes(body[:4], "little")
@@ -122,9 +120,10 @@ def _parse_hello(body: bytes, sample_rate_hz: int, frame_samples: int) -> AudioH
         hello = AudioHello.model_validate(json.loads(raw.decode("utf-8")))
     except (UnicodeDecodeError, json.JSONDecodeError, ValidationError) as exc:
         raise ProtocolError("hello_json") from exc
-    if hello.sample_rate_hz != sample_rate_hz:
+    if hello.sample_rate_hz not in allowed_sample_rates:
         raise ProtocolError("sample_rate")
-    if hello.frame_samples != frame_samples:
+    expected_samples = hello.sample_rate_hz * frame_ms // 1000
+    if hello.frame_samples != expected_samples:
         raise ProtocolError("frame_samples")
     return hello
 

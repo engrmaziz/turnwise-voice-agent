@@ -52,6 +52,19 @@ class Settings(BaseSettings):
     bench_whisper_model: str = ""
     bench_llm_command: str = ""
     bench_tts_command: str = ""
+    ws_allowed_sample_rates: str = "8000,16000,48000"
+    vad_window_samples: int = 512
+    vad_speech_threshold: float = 0.5
+    vad_speech_start_ms: int = 200
+    vad_preroll_ms: int = 500
+    vad_max_utterance_ms: int = 15000
+    vad_timeout_ms: int = 30
+    vad_onnx_path: str = "models/weights/silero_vad.onnx"
+    audio_silence_rms: float = 0.005
+    audio_silence_window_s: float = 3.0
+    audio_clip_fraction: float = 0.01
+    audio_clip_peak: int = 32760
+    headphones_pcm_path: str = "client/prompts/headphones.pcm"
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -89,6 +102,12 @@ class Settings(BaseSettings):
         "ws_max_sessions",
         "bench_warmup",
         "bench_samples",
+        "vad_window_samples",
+        "vad_speech_start_ms",
+        "vad_preroll_ms",
+        "vad_max_utterance_ms",
+        "vad_timeout_ms",
+        "audio_clip_peak",
     )
     @classmethod
     def at_least_one(cls, value: int) -> int:
@@ -118,12 +137,42 @@ class Settings(BaseSettings):
             raise ValueError("ws_frame_ms must be 20 or 40")
         return value
 
-    @field_validator("stage_put_timeout_s", "otel_export_timeout_s", "bench_timeout_s")
+    @field_validator(
+        "stage_put_timeout_s",
+        "otel_export_timeout_s",
+        "bench_timeout_s",
+        "audio_silence_window_s",
+    )
     @classmethod
     def positive_timeout(cls, value: float) -> float:
         if value <= 0:
             raise ValueError("timeouts must be > 0")
         return value
+
+    @field_validator("vad_speech_threshold", "audio_clip_fraction")
+    @classmethod
+    def unit_interval(cls, value: float) -> float:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError("value must be in [0, 1]")
+        return value
+
+    @field_validator("audio_silence_rms")
+    @classmethod
+    def non_negative(cls, value: float) -> float:
+        if value < 0:
+            raise ValueError("audio_silence_rms must be >= 0")
+        return value
+
+    @field_validator("ws_allowed_sample_rates")
+    @classmethod
+    def parse_rates(cls, value: str) -> str:
+        parts = [part.strip() for part in value.split(",") if part.strip()]
+        if not parts:
+            raise ValueError("ws_allowed_sample_rates must list at least one rate")
+        for part in parts:
+            if not part.isdigit() or int(part) < 1:
+                raise ValueError("sample rates must be positive integers")
+        return ",".join(parts)
 
     @property
     def pii_field_names(self) -> frozenset[str]:
@@ -136,6 +185,14 @@ class Settings(BaseSettings):
     @property
     def ws_pcm_bytes(self) -> int:
         return self.ws_frame_samples * 2
+
+    @property
+    def allowed_sample_rates(self) -> frozenset[int]:
+        return frozenset(int(part) for part in self.ws_allowed_sample_rates.split(",") if part)
+
+    @property
+    def vad_preroll_frames(self) -> int:
+        return max(1, self.vad_preroll_ms // self.ws_frame_ms)
 
 
 @lru_cache(maxsize=1)

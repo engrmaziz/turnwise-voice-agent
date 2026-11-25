@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest
 from pydantic import BaseModel
 
+from models.vad_pool import VadEngine, VadPool
 from pipeline.metrics import StageMetrics, build_stage_metrics
 from pipeline.session import SessionStore
 from pipeline.stages.audio_in import AudioInHandler
@@ -22,6 +23,10 @@ from server.telemetry import Tracing, start_tracing
 
 def new_audio_handler() -> AudioInHandler:
     return AudioInHandler()
+
+
+def unavailable_vad() -> VadEngine:
+    return VadPool.unavailable(timeout_ms=30)
 
 
 class HealthResponse(BaseModel):
@@ -41,6 +46,7 @@ class AppContainer:
     tracing: Tracing | None = None
     closed_snapshots: list[ClosedCallSnapshot] | None = None
     make_audio_handler: Callable[[], AudioInHandler] = field(default=new_audio_handler)
+    vad_engine: VadEngine = field(default_factory=unavailable_vad)
 
 
 class TurnwiseApp(FastAPI):
@@ -62,6 +68,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     resolved = settings if settings is not None else get_settings()
     registry = CollectorRegistry()
     metrics = build_stage_metrics(registry)
+    vad_engine = _load_vad(resolved)
     container = AppContainer(
         settings=resolved,
         registry=registry,
@@ -69,6 +76,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         sessions=SessionStore(on_barge_in=lambda: metrics.barge_in.inc()),
         redactor=PiiRedactor(resolved),
         closed_snapshots=[],
+        vad_engine=vad_engine,
     )
 
     @asynccontextmanager
@@ -82,6 +90,9 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
             container.tracing = None
             if tracing is not None:
                 tracing.shutdown()
+            engine = container.vad_engine
+            if engine is not None:
+                engine.close()
 
     app = TurnwiseApp(container=container, lifespan=lifespan)
     client_dir = Path(__file__).resolve().parent.parent / "client"
@@ -114,6 +125,18 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         return Response(content=payload, media_type=CONTENT_TYPE_LATEST)
 
     return app
+
+
+def _load_vad(settings: Settings) -> VadEngine:
+    path = Path(settings.vad_onnx_path)
+    if not path.is_file():
+        return VadPool.unavailable(timeout_ms=settings.vad_timeout_ms)
+    return VadPool.load(
+        path,
+        timeout_ms=settings.vad_timeout_ms,
+        window_samples=settings.vad_window_samples,
+        sample_rate_hz=settings.ws_sample_rate_hz,
+    )
 
 
 def _container(request: Request) -> AppContainer:

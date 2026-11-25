@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 import structlog
@@ -12,12 +14,15 @@ from fastapi import WebSocket
 from opentelemetry.trace import Tracer, get_tracer
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
+from models.vad_pool import VadEngine
+from pipeline.audio.clock import ClockError, FrameClock
 from pipeline.errors import StageBackpressureError
 from pipeline.event import EventKind
 from pipeline.metrics import StageMetrics
 from pipeline.session import Session, SessionStore
 from pipeline.stage import Stage, StageConfig
 from pipeline.stages.audio_in import AudioInHandler
+from pipeline.stages.vad import VadHandler
 from server.config import Settings
 from server.playback import ClosedCallSnapshot, PlaybackCursor
 from server.telemetry import Tracing
@@ -30,6 +35,7 @@ from server.transport import (
     HelloMessage,
     PcmMessage,
     ProtocolError,
+    encode_pcm,
     parse_message,
 )
 
@@ -42,6 +48,7 @@ class WsContainer(Protocol):
     sessions: SessionStore
     tracing: Tracing | None
     closed_snapshots: list[ClosedCallSnapshot] | None
+    vad_engine: VadEngine
 
     @property
     def make_audio_handler(self) -> Callable[[], AudioInHandler]: ...
@@ -50,10 +57,14 @@ class WsContainer(Protocol):
 @dataclass(slots=True)
 class LiveCall:
     session: Session
-    stage: Stage
+    audio_stage: Stage
+    vad_stage: Stage
     handler: AudioInHandler
+    vad_handler: VadHandler
     playback: PlaybackCursor
-    next_frame_index: int
+    clock: FrameClock
+    pcm_bytes: int
+    src_hz: int
 
 
 async def handle_audio_socket(websocket: WebSocket, container: WsContainer) -> None:
@@ -75,11 +86,12 @@ async def handle_audio_socket(websocket: WebSocket, container: WsContainer) -> N
                 container.metrics.ws_rejects.labels(reason="not_binary").inc()
                 await _close(websocket, CLOSE_PROTOCOL)
                 return
+            pcm_bytes = call.pcm_bytes if call is not None else settings.ws_pcm_bytes
             parsed = parse_message(
                 data,
-                expected_pcm_bytes=settings.ws_pcm_bytes,
-                expected_sample_rate_hz=settings.ws_sample_rate_hz,
-                expected_frame_samples=settings.ws_frame_samples,
+                expected_pcm_bytes=pcm_bytes,
+                allowed_sample_rates=settings.allowed_sample_rates,
+                frame_ms=settings.ws_frame_ms,
             )
             if isinstance(parsed, HelloMessage):
                 call = await _on_hello(websocket, container, call, parsed)
@@ -113,49 +125,93 @@ async def _on_hello(
         raise ProtocolError("second_hello")
     if len(container.sessions) >= container.settings.ws_max_sessions:
         raise ProtocolError("max_sessions", CLOSE_TRY_AGAIN)
+    settings = container.settings
     session_id = parsed.hello.session_id.strip() or str(uuid.uuid4())
     session = container.sessions.open(session_id)
-    handler = container.make_audio_handler()
-    stage = Stage(
+    session.barge_in_enabled = parsed.hello.aec
+    if not parsed.hello.aec:
+        container.metrics.aec_disabled.inc()
+        await _maybe_headphones_prompt(websocket, settings)
+    config = StageConfig(
+        queue_maxsize=settings.stage_queue_maxsize,
+        put_timeout_s=settings.stage_put_timeout_s,
+    )
+    tracer = _tracer(container)
+    vad_handler = VadHandler(
+        session=session,
+        settings=settings,
+        engine=container.vad_engine,
+        metrics=container.metrics,
+    )
+    vad_stage = Stage(
+        name="vad",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=vad_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
+    override = container.make_audio_handler()
+    if type(override) is AudioInHandler:
+        handler = AudioInHandler(
+            session=session,
+            src_hz=parsed.hello.sample_rate_hz,
+            dst_hz=settings.ws_sample_rate_hz,
+            metrics=container.metrics,
+            forward=vad_stage.emit,
+        )
+    else:
+        handler = override
+    audio_stage = Stage(
         name="audio_in",
         session_id=session.session_id,
         sessions=container.sessions,
         handler=handler,
-        config=StageConfig(
-            queue_maxsize=container.settings.stage_queue_maxsize,
-            put_timeout_s=container.settings.stage_put_timeout_s,
-        ),
-        tracer=_tracer(container),
+        config=config,
+        tracer=tracer,
         metrics=container.metrics,
     )
-    stage.start()
+    vad_stage.start()
+    audio_stage.start()
     container.metrics.ws_frames.labels(direction="in").inc()
-    _LOG.info("ws_session_open", session_id=session.session_id, aec=parsed.hello.aec)
+    _LOG.info(
+        "ws_session_open",
+        session_id=session.session_id,
+        aec=parsed.hello.aec,
+        sample_rate_hz=parsed.hello.sample_rate_hz,
+        barge_in_enabled=session.barge_in_enabled,
+    )
     return LiveCall(
         session=session,
-        stage=stage,
+        audio_stage=audio_stage,
+        vad_stage=vad_stage,
         handler=handler,
+        vad_handler=vad_handler,
         playback=PlaybackCursor(),
-        next_frame_index=0,
+        clock=FrameClock(),
+        pcm_bytes=parsed.hello.frame_samples * 2,
+        src_hz=parsed.hello.sample_rate_hz,
     )
 
 
 async def _on_pcm(container: WsContainer, call: LiveCall | None, parsed: PcmMessage) -> None:
     if call is None:
         raise ProtocolError("pcm_before_hello")
-    if parsed.frame_index < call.next_frame_index:
-        raise ProtocolError("frame_index_rewind")
-    if parsed.frame_index > call.next_frame_index + 2:
-        raise ProtocolError("frame_index_gap")
-    if parsed.frame_index > call.next_frame_index:
-        call.next_frame_index = parsed.frame_index
+    try:
+        gaps_before = call.clock.gaps
+        call.clock.accept(parsed.frame_index)
+        if call.clock.gaps > gaps_before:
+            container.metrics.clock_gaps.inc()
+    except ClockError as exc:
+        raise ProtocolError(exc.reason) from exc
+    call.session.stage_wire_pcm(parsed.frame_index, parsed.pcm16)
     event = call.session.create_event(
         EventKind.AUDIO,
         {"samples": container.settings.ws_frame_samples},
         frame_index=parsed.frame_index,
     )
-    await call.stage.emit(event)
-    call.next_frame_index = parsed.frame_index + 1
+    await call.audio_stage.emit(event)
     container.metrics.ws_frames.labels(direction="in").inc()
 
 
@@ -166,10 +222,40 @@ def _on_ack(container: WsContainer, call: LiveCall | None, parsed: AckMessage) -
     container.metrics.ws_frames.labels(direction="in").inc()
 
 
+def _read_headphones_pcm(path: Path) -> bytes | None:
+    if not path.is_file():
+        return None
+    pcm = path.read_bytes()
+    if len(pcm) % 2 != 0:
+        return b""
+    return pcm
+
+
+async def _maybe_headphones_prompt(websocket: WebSocket, settings: Settings) -> None:
+    path = Path(settings.headphones_pcm_path)
+    pcm = await asyncio.to_thread(_read_headphones_pcm, path)
+    if pcm is None:
+        _LOG.warning("prompt_missing", prompt="headphones_required", path=str(path))
+        return
+    if pcm == b"":
+        _LOG.warning("prompt_missing", prompt="headphones_required", reason="odd_pcm")
+        return
+    frame = settings.ws_pcm_bytes
+    index = 0
+    offset = 0
+    while offset + frame <= len(pcm):
+        chunk = pcm[offset : offset + frame]
+        await websocket.send_bytes(encode_pcm(index, chunk))
+        offset += frame
+        index += 1
+    _LOG.info("headphones_prompt_queued", frames=index)
+
+
 async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
     if call is None:
         return
-    await call.stage.inbox.join()
+    await call.audio_stage.inbox.join()
+    await call.vad_stage.inbox.join()
     snapshots = container.closed_snapshots
     if snapshots is not None:
         snapshots.append(
@@ -179,7 +265,8 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
                 acked_frame=call.playback.acked_frame,
             )
         )
-    await call.stage.aclose()
+    await call.audio_stage.aclose()
+    await call.vad_stage.aclose()
     container.sessions.close(call.session.session_id)
     _LOG.info("ws_session_close", session_id=call.session.session_id)
 

@@ -1,6 +1,6 @@
 # Architecture
 
-Turnwise is a local, full-duplex clinic receptionist. This milestone is the bus those stages sit on: typed events, a per-call generation clock, bounded queues, telemetry, and a PCM16 WebSocket. No recognizer, dialogue machine, tool, or model worker exists yet. `python -m evals.bench` times workers off the call path and writes `docs/benchmarks.md` from JSON.
+Turnwise is a local, full-duplex clinic receptionist. This milestone is the event bus plus the audio front end: typed events, a per-call generation clock, bounded queues, telemetry, a PCM16 WebSocket, one resample at ingress, a Silero VAD worker pool, and an AEC flag that gates barge-in. No recognizer, dialogue machine, tool, ASR, LLM, or TTS worker exists yet. `python -m evals.bench` times those workers off the call path and writes `docs/benchmarks.md` from JSON.
 
 Design constraints are ADR-001 (the FSM owns state), ADR-002 (bounded queues and generation cancellation), ADR-003 (model choice waits on measured rows), and ADR-004 (hardware tier, blocked until those rows exist).
 
@@ -27,9 +27,11 @@ flowchart LR
 
 `ResponsePlanner` emits either a template or a grammar-constrained model proposal. The model does not write dialogue state. `ITN` produces written forms; a separate deterministic resolver, using the session clock and timezone, turns "next Tuesday" into an instant. Those two steps are not the same component.
 
-AEC runs in the browser (`echoCancellation` on the microphone). The server does not cancel echo. Barge-in on speakers without that client flag is unsupported until a server AEC exists.
+On the server, `audio_in` resamples then forwards to `vad`. Browser AEC is not a server stage. Downstream boxes in the diagram are not built.
 
-Shared worker pools (ASR, TTS, small ONNX models, the language-model client) are process-wide, not one copy per call. They are not built. When they are, a result carries the generation captured at submit time and is discarded if the session has moved on. Cancelling the session task does not stop a GPU call already inside the worker. Pool batch wait stays at a few milliseconds. The session currently being talked over is served first on the ASR pool so barge-in is not stuck behind another call's decode.
+AEC runs in the browser (`echoCancellation` on the microphone). The server does not cancel echo. `Session.request_barge_in` is a no-op unless `session.barge_in_enabled` is true, and that flag is the hello `aec` boolean from `track.getSettings()`, not the constraint the client asked for. Barge-in on speakers without that client flag is unsupported until a server AEC exists.
+
+Shared worker pools are process-wide, not one copy per call. The Silero VAD pool is built: one ONNX session, inference in a `ThreadPoolExecutor`, timeout `vad_timeout_ms` (30). ASR, TTS, and the language-model client are not. A VAD result carries the generation captured at submit time and is discarded if the session has moved on. Cancelling the session task does not stop a call already inside the worker. Pool batch wait stays at a few milliseconds. The session currently being talked over is served first on the ASR pool so barge-in is not stuck behind another call's decode.
 
 ## Event schema
 
@@ -45,7 +47,9 @@ Shared worker pools (ASR, TTS, small ONNX models, the language-model client) are
 | `payload` | Flat JSON scalars. Frozen. Never logged or copied onto a span. |
 | `ts_monotonic` | `time.monotonic()` at creation. |
 
-`Session.create_event` stamps the current turn and generation. `Session.next_turn` opens a turn without cancelling speech. `Session.barge_in` increments generation and turn, then cancels tasks registered with `track_speaking`.
+`Session.create_event` stamps the current turn and generation. `Session.next_turn` opens a turn without cancelling speech. `Session.barge_in` increments generation and turn, then cancels tasks registered with `track_speaking`. `Session.request_barge_in` is the VAD hook: it calls `barge_in` only when `barge_in_enabled` is true and a speaking task is tracked.
+
+PCM16 bytes live on the session (`put_pcm` / `get_pcm` / `take_wire_pcm`), keyed by `frame_index`. `Event.payload` stays scalars (`samples=320`). Audio is never a hex dump in the payload, a log field, or a span attribute. `barge_in` drops the PCM maps so a cancelled generation cannot be scored as a new utterance. Pre-roll for the new start is a snapshot taken before that clear.
 
 An event is stale when its session id or generation does not match the live session. Stale events are dropped. They are the normal barge-in path.
 
@@ -70,7 +74,7 @@ There is no await inside `barge_in` between the increment and the cancels, so a 
 
 `Stage.run` handles `CancelledError` by clearing the cancellation count (Python 3.11 raises again at the next await while `cancelling()` is non-zero), running the cleanup hook once, and re-raising. A handler exception is counted, logged with the bound ids, cleaned up, and re-raised. The stage task ends. A supervisor that restarts a stage is not part of this milestone; the owner closes the session.
 
-Spans use `session_id`, `turn_id`, `generation`, `stage`, `model`, and `latency_ms`. `model` is `none` until a stage calls a model. The payload is not an attribute.
+Spans use `session_id`, `turn_id`, `generation`, `stage`, `model`, and `latency_ms`. `model` is `none` until a stage calls a model. The VAD stage sets `model` to the ONNX file name (or `unavailable` / energy fallback) and `audio_quality` to `ok`, `clipped`, or `dead`. The payload is not an attribute.
 
 ## Workers and the HTTP process
 
@@ -81,11 +85,13 @@ Spans use `session_id`, `turn_id`, `generation`, `stage`, `model`, and `latency_
 | Byte 0 | Body |
 |---|---|
 | `0x01` | uint32 LE length + UTF-8 JSON hello (`session_id`, `sample_rate_hz`, `frame_samples`, `aec`, `ns`) |
-| `0x02` | uint32 LE `frame_index` + PCM16 (640 bytes at 16 kHz / 20 ms) |
+| `0x02` | uint32 LE `frame_index` + PCM16 (`sample_rate_hz * frame_ms / 1000` samples) |
 | `0x03` | uint32 LE play-ack `frame_index` |
 | `0x04` | close |
 
-A hello whose rate is not 16 kHz, a PCM payload that is not 640 bytes, a decreasing `frame_index`, or a second hello closes the socket with code 1003. `python -m server` binds `TURNWISE_HTTP_HOST` and `TURNWISE_HTTP_PORT` (defaults `127.0.0.1:8000`). Compose sets the host to `0.0.0.0`.
+Hello `sample_rate_hz` must be in `ws_allowed_sample_rates` (`8000`, `16000`, `48000`). Ingress resamples once to 16 kHz / 20 ms / 320 samples (640 bytes). A PCM payload whose sample count does not match the hello rate, a `frame_index` gap larger than one skipped index (sequence `0,1,4` closes), a decreasing index, or a second hello closes the socket with code 1003. `python -m server` binds `TURNWISE_HTTP_HOST` and `TURNWISE_HTTP_PORT` (defaults `127.0.0.1:8000`). Compose sets the host to `0.0.0.0`.
+
+`pipeline/audio/format.py` is the only resampler. Later stages must not import it. Silero wants 512 samples; the VAD stage buffers privately and does not change the 320-sample bus. If `client/prompts/headphones.pcm` is missing, the server logs `prompt_missing` and leaves barge-in disarmed when AEC is false.
 
 OTLP export uses a bounded batch queue (`otel_max_queue_size`, default 2048). If Jaeger is down, the SDK drops spans after that queue fills and the process stays up. `otel_enabled` can turn export off; spans are still created so stages have one code path.
 
@@ -105,6 +111,16 @@ Counters are created without a `_total` suffix. Prometheus adds it on the scrape
 | `turnwise_ttfa_content_seconds` | First played non-filler frame. No observations yet. |
 | `turnwise_ws_frames_total` | Accepted WebSocket protocol messages. Label `direction`. |
 | `turnwise_ws_rejects_total` | Rejected WebSocket protocol messages. Label `reason`. |
+| `turnwise_audio_resample_seconds` | Time to resample one ingress frame to 16 kHz. |
+| `turnwise_audio_clock_gaps_total` | Client indexes that skipped one expected frame. |
+| `turnwise_aec_disabled_sessions_total` | Hello reported `echoCancellation` false. |
+| `turnwise_vad_prob` | Silero or energy-fallback speech probability. |
+| `turnwise_vad_latency_seconds` | VAD inference including executor wait. |
+| `turnwise_vad_fallback_total` | Frames scored by the energy gate instead of ONNX. |
+| `turnwise_vad_hang_total` | Utterances forced idle by `vad_max_utterance_ms`. |
+| `turnwise_preroll_underrun_total` | Speech starts whose pre-roll was shorter than `vad_preroll_ms`. |
+| `turnwise_audio_dead_total` | Sessions closed after a silent microphone window. |
+| `turnwise_audio_clipped_total` | Sessions flagged for clipping. |
 
 Logs go through structlog. `session_id`, `turn_id`, and `generation` are bound for the handler. Configured PII field names are HMAC-SHA256'd. A log key named `payload` is replaced with `omitted`. If `TURNWISE_PII_HASH_KEY` is unset, the process generates a key and logs `pii_hash_key_unset` once; hashes will not join across restarts.
 
@@ -140,17 +156,19 @@ Sequential `emit` of one event into a stage whose handler returns immediately. T
 
 Three consecutive runs of `tests/test_stage_overhead.py` on Python 3.11.9, Windows 10.0.26300, reported medians of **0.0825 ms**, **0.0806 ms**, and **0.0734 ms**. The test fails if a run's median reaches 5 ms. The sample starts at the `perf_counter` taken in the argument to `create_event` and stops when the handler starts; `emit` is the next statement.
 
+Resample of one 20 ms 48 kHz frame to 16 kHz: p50 **0.1446 ms** (`docs/results/phase2.md`). Silero VAD inference p50 **0.5195 ms** after warmup on `silero_vad.onnx`. Both sit inside the 20 ms ingress and 10 ms VAD allocations.
+
 No time-to-first-audio sample has been recorded.
 
 ## Failure policy
 
-Stages below are not implemented. The detection and fallback are the contract they have to meet. Every external call gets a timeout from settings.
+Every external call gets a timeout from settings. Rows without a live stage are the contract later work has to meet.
 
 | Failure | Detection | Fallback |
 |---|---|---|
-| Silent or clipped mic | RMS gate over a configured window | Tell the caller and end the session |
-| Browser AEC unavailable | Flag on the client hello | Barge-in off; headphones required |
-| VAD worker timeout | Per-call timeout | Hard silence ceiling only |
+| Silent or clipped mic | RMS gate over `audio_silence_window_s` | One `SESSION_END` (`audio_dead`); clip sets session quality |
+| Browser AEC unavailable | Flag on the client hello | Barge-in off; headphones prompt or `prompt_missing` |
+| VAD worker timeout | Two `vad_timeout_ms` failures, or missing ONNX | Energy gate; `turnwise_vad_fallback` |
 | ASR timeout or confidence collapse | Timeout, then a low-confidence streak | Offer a callback or a human |
 | ITN or date-resolver failure | Exception, or an unresolved relative date | Keep the spoken form and re-ask critical slots |
 | Turn-detector timeout | Timeout | Silence-only endpoint from config |
@@ -182,10 +200,11 @@ Settings and defaults are in `server/config.py` and `.env.example`.
 
 ## What this milestone does not do
 
-- No VAD, ASR, NLU, FSM, tools, or TTS worker. The WebSocket accepts PCM and counts frames.
-- No model is pinned. ADR-003 stays Proposed. ADR-004 is blocked until ASR, LLM, and TTS rows are `ok`.
+- No ASR, NLU, FSM, tools, or TTS worker. Ingress and VAD are live; the recognizer is not.
+- No model is pinned for ASR, LLM, or TTS. ADR-003 stays Proposed. ADR-004 is blocked until those rows are `ok`.
 - No session supervisor. A failed stage task stays failed until the owner closes it.
 - Playback acks and `frame_index` are on the event so later stages share a clock.
-- PII redaction covers configured log keys and any `payload` key. A span that later sets a raw name as an attribute would bypass it; stage code must keep using ids and `model` only.
+- PII redaction covers configured log keys and any `payload` key. A span that later sets a raw name as an attribute would bypass it; stage code must keep using ids and `model` only. PCM must stay off the payload.
 - Native Windows does not pip-install NeMo text processing. That dependency is not in this milestone.
 - The hardware bench does not sit on the call path. A `blocked` or `not_present` cell is not a zero.
+- Server-side AEC is a non-goal. The speaker-versus-headphones row in `docs/results/phase2.md` is `not run`.

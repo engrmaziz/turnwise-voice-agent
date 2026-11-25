@@ -37,6 +37,8 @@ def settings() -> Settings:
         metrics_enabled=True,
         pii_hash_key=SecretStr("test-key"),
         pii_fields="patient_name,name,dob,date_of_birth,phone",
+        vad_onnx_path="models/weights/missing.onnx",
+        vad_timeout_ms=200,
     )
 
 

@@ -6,6 +6,8 @@ Ship a narrow call by the end of phase 4: silence endpointing, a deterministic s
 
 ## Phase 1 — Transport and benchmarks
 
+Done. Model bench rows stay `blocked` until weights exist. Headphone check is `not run`. See `docs/results/phase1.md` and `docs/benchmarks.md`.
+
 - WebSocket audio is PCM16, 16 kHz, 20 ms frames, and a tone round-trips.
 - The browser client requests `echoCancellation`.
 - `docs/benchmarks.md` records ASR real-time factor, language-model time-to-first-token and tokens per second, and TTS time-to-first-chunk on the named hardware.
@@ -13,6 +15,8 @@ Ship a narrow call by the end of phase 4: silence endpointing, a deterministic s
 - `/health` and `/metrics` still scrape.
 
 ## Phase 2 — Audio front end
+
+Done. Measured rows: `docs/results/phase2.md`. Speaker-versus-headphones AEC row is `not run`.
 
 - Ingress resamples to 16 kHz mono PCM16 once.
 - Silero runs with hysteresis. Speech-start duration comes from settings.

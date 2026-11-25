@@ -87,9 +87,9 @@
   async function start() {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        echoCancellation: { exact: true },
-        noiseSuppression: { exact: true },
-        channelCount: { ideal: 1 },
+        echoCancellation: true,
+        noiseSuppression: true,
+        channelCount: 1,
       },
     });
     mediaStream = stream;

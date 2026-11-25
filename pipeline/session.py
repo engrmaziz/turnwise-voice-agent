@@ -3,9 +3,19 @@
 import asyncio
 import time
 from collections.abc import Callable, Mapping
+from enum import StrEnum
 
 from pipeline.errors import SessionNotFoundError
 from pipeline.event import Event, EventKind, JsonValue
+
+
+class AudioQuality(StrEnum):
+    OK = "ok"
+    CLIPPED = "clipped"
+    DEAD = "dead"
+
+
+_QUALITY_RANK = {AudioQuality.OK: 0, AudioQuality.CLIPPED: 1, AudioQuality.DEAD: 2}
 
 
 class Session:
@@ -21,7 +31,17 @@ class Session:
     numbers do not belong in it; logs and spans record it in the clear.
     """
 
-    __slots__ = ("_generation", "_on_barge_in", "_session_id", "_speaking", "_turn_id")
+    __slots__ = (
+        "_audio_quality",
+        "_barge_in_enabled",
+        "_generation",
+        "_on_barge_in",
+        "_pcm",
+        "_session_id",
+        "_speaking",
+        "_turn_id",
+        "_wire_pcm",
+    )
 
     def __init__(self, session_id: str, *, on_barge_in: Callable[[], None] | None = None) -> None:
         if not session_id:
@@ -31,6 +51,10 @@ class Session:
         self._generation = 0
         self._speaking: set[asyncio.Task[None]] = set()
         self._on_barge_in = on_barge_in if on_barge_in is not None else _noop
+        self._barge_in_enabled = True
+        self._audio_quality = AudioQuality.OK
+        self._pcm: dict[int, bytes] = {}
+        self._wire_pcm: dict[int, bytes] = {}
 
     @property
     def session_id(self) -> str:
@@ -57,16 +81,55 @@ class Session:
         self._turn_id += 1
         return self._turn_id
 
+    @property
+    def barge_in_enabled(self) -> bool:
+        return self._barge_in_enabled
+
+    @barge_in_enabled.setter
+    def barge_in_enabled(self, value: bool) -> None:
+        self._barge_in_enabled = value
+
+    @property
+    def audio_quality(self) -> AudioQuality:
+        return self._audio_quality
+
+    def note_audio_quality(self, quality: AudioQuality) -> AudioQuality:
+        """Keep the worst flag seen. ``dead`` outranks ``clipped`` outranks ``ok``."""
+        if _QUALITY_RANK[quality] > _QUALITY_RANK[self._audio_quality]:
+            self._audio_quality = quality
+        return self._audio_quality
+
+    def request_barge_in(self) -> bool:
+        """Run ``barge_in`` only when the client reported AEC on."""
+        if not self._barge_in_enabled:
+            return False
+        self.barge_in()
+        return True
+
     def barge_in(self) -> int:
         """Supersede the current generation and cancel registered speaking tasks."""
         self._generation += 1
         self._turn_id += 1
+        self._pcm.clear()
+        self._wire_pcm.clear()
         tasks = tuple(self._speaking)
         self._speaking.clear()
         for task in tasks:
             task.cancel()
         self._on_barge_in()
         return self._generation
+
+    def stage_wire_pcm(self, frame_index: int, pcm: bytes) -> None:
+        self._wire_pcm[frame_index] = pcm
+
+    def take_wire_pcm(self, frame_index: int) -> bytes | None:
+        return self._wire_pcm.pop(frame_index, None)
+
+    def put_pcm(self, frame_index: int, pcm: bytes) -> None:
+        self._pcm[frame_index] = pcm
+
+    def get_pcm(self, frame_index: int) -> bytes | None:
+        return self._pcm.get(frame_index)
 
     def track_speaking(self, task: asyncio.Task[None]) -> None:
         """Register a task that ``barge_in`` must cancel.

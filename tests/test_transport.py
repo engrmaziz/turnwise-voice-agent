@@ -26,8 +26,8 @@ def _parse(data: bytes) -> ParsedMessage:
     return parse_message(
         data,
         expected_pcm_bytes=settings.ws_pcm_bytes,
-        expected_sample_rate_hz=settings.ws_sample_rate_hz,
-        expected_frame_samples=settings.ws_frame_samples,
+        allowed_sample_rates=settings.allowed_sample_rates,
+        frame_ms=settings.ws_frame_ms,
     )
 
 
@@ -52,9 +52,22 @@ def test_rejects_wrong_sample_rate() -> None:
         aec=False,
         ns=False,
     )
-    raw = encode_hello(hello).replace(b"16000", b"08000")
+    raw = encode_hello(hello).replace(b"16000", b"44100")
     with pytest.raises(ProtocolError, match=r"hello_json|sample_rate"):
         _parse(raw)
+
+
+def test_accepts_8k_hello() -> None:
+    hello = AudioHello(
+        session_id="s",
+        sample_rate_hz=8000,
+        frame_samples=160,
+        aec=True,
+        ns=True,
+    )
+    parsed = _parse(encode_hello(hello))
+    assert isinstance(parsed, HelloMessage)
+    assert parsed.hello.sample_rate_hz == 8000
 
 
 def test_rejects_pcm_length_not_640() -> None:

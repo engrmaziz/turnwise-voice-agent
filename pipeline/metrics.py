@@ -44,6 +44,16 @@ class StageMetrics:
     ttfa_content: Histogram
     ws_frames: Counter
     ws_rejects: Counter
+    resample: Histogram
+    clock_gaps: Counter
+    aec_disabled: Counter
+    vad_prob: Histogram
+    vad_latency: Histogram
+    vad_fallback: Counter
+    vad_hang: Counter
+    preroll_underrun: Counter
+    audio_dead: Counter
+    audio_clipped: Counter
 
 
 def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
@@ -111,6 +121,59 @@ def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
             "turnwise_ws_rejects",
             "WebSocket protocol messages rejected.",
             labelnames=("reason",),
+            registry=registry,
+        ),
+        resample=Histogram(
+            "turnwise_audio_resample_seconds",
+            "Time to resample one ingress frame to 16 kHz mono PCM16.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        clock_gaps=Counter(
+            "turnwise_audio_clock_gaps",
+            "Client frame indexes that skipped one or two expected frames.",
+            registry=registry,
+        ),
+        aec_disabled=Counter(
+            "turnwise_aec_disabled_sessions",
+            "Sessions whose hello reported echoCancellation false.",
+            registry=registry,
+        ),
+        vad_prob=Histogram(
+            "turnwise_vad_prob",
+            "Silero (or energy-fallback) speech probability.",
+            buckets=(0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0),
+            registry=registry,
+        ),
+        vad_latency=Histogram(
+            "turnwise_vad_latency_seconds",
+            "VAD inference time including executor wait.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        vad_fallback=Counter(
+            "turnwise_vad_fallback",
+            "Frames scored by the energy gate instead of ONNX.",
+            registry=registry,
+        ),
+        vad_hang=Counter(
+            "turnwise_vad_hang",
+            "Utterances forced idle by vad_max_utterance_ms.",
+            registry=registry,
+        ),
+        preroll_underrun=Counter(
+            "turnwise_preroll_underrun",
+            "Speech starts whose pre-roll was shorter than vad_preroll_ms.",
+            registry=registry,
+        ),
+        audio_dead=Counter(
+            "turnwise_audio_dead",
+            "Sessions closed after a silent microphone window.",
+            registry=registry,
+        ),
+        audio_clipped=Counter(
+            "turnwise_audio_clipped",
+            "Sessions flagged for clipping.",
             registry=registry,
         ),
     )
