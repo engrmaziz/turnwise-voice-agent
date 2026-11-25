@@ -17,7 +17,7 @@ A model is eligible for the hot path only when a benchmark on the target hardwar
 2. Contextual biasing (hotwords or an equivalent context graph) is actually available in the pinned build. A model whose streaming mode is greedy-only does not satisfy the doctor-name requirement until that build grows a biasing path we have run.
 3. A CPU fallback exists for TTS, and for ASR if the GPU is busy with the language model. Pools are process-wide, not one model instance per call.
 4. The license allows local redistribution with the repo's download script.
-5. The measured contribution to time-to-first-audio is reported in `docs/benchmarks.md` (that file does not exist yet). Phrase-cache hits are a separate row from cold synthesis.
+5. The measured contribution to time-to-first-audio is reported in `docs/benchmarks.md`. Phrase-cache hits are a separate row from cold synthesis. A `blocked` cell is not a measurement.
 
 Candidates may be benchmarked. Naming them here does not select them:
 

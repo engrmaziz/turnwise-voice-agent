@@ -55,6 +55,7 @@ Python 3.11+, [uv](https://docs.astral.sh/uv/).
 ```bash
 uv sync --all-groups
 uv run pytest
+uv run python -m evals.bench
 uv run python -m server
 ```
 
@@ -79,7 +80,7 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M1.1 tooling, config, CI, telemetry | done |
 | M1.2 event bus, session, bounded stages | done |
 | M1.3 WebSocket PCM16 + browser client | done (headphone check not run; see `docs/results/phase1.md`) |
-| M1.4 hardware benchmarks | not started |
+| M1.4 hardware benchmarks | done (model rows blocked until weights exist; see `docs/benchmarks.md`) |
 | Phases 2–10 | not started |
 
 Roadmap with acceptance lines: [`docs/ROADMAP.md`](docs/ROADMAP.md).

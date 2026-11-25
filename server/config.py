@@ -42,6 +42,16 @@ class Settings(BaseSettings):
     ws_sample_rate_hz: int = 16000
     ws_frame_ms: int = 20
     ws_max_sessions: int = 8
+    bench_warmup: int = 5
+    bench_samples: int = 20
+    bench_timeout_s: float = 30.0
+    bench_results_dir: str = "docs/results/bench"
+    bench_markdown_path: str = "docs/benchmarks.md"
+    bench_adr_path: str = "docs/adr/ADR-004-hardware-tier.md"
+    bench_sherpa_model_dir: str = ""
+    bench_whisper_model: str = ""
+    bench_llm_command: str = ""
+    bench_tts_command: str = ""
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -73,7 +83,13 @@ class Settings(BaseSettings):
             raise ValueError("http_port must be between 1 and 65535")
         return value
 
-    @field_validator("stage_queue_maxsize", "otel_max_queue_size", "ws_max_sessions")
+    @field_validator(
+        "stage_queue_maxsize",
+        "otel_max_queue_size",
+        "ws_max_sessions",
+        "bench_warmup",
+        "bench_samples",
+    )
     @classmethod
     def at_least_one(cls, value: int) -> int:
         if value < 1:
@@ -102,7 +118,7 @@ class Settings(BaseSettings):
             raise ValueError("ws_frame_ms must be 20 or 40")
         return value
 
-    @field_validator("stage_put_timeout_s", "otel_export_timeout_s")
+    @field_validator("stage_put_timeout_s", "otel_export_timeout_s", "bench_timeout_s")
     @classmethod
     def positive_timeout(cls, value: float) -> float:
         if value <= 0:

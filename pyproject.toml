@@ -96,3 +96,6 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 pythonpath = ["."]
 addopts = "-q"
+markers = [
+  "bench: talks to optional local model binaries; not required on default CI",
+]

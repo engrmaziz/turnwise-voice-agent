@@ -2,7 +2,7 @@
 
 ## 1.0 Overview
 
-This phase finishes the process skeleton and measures the machines the later phases will run on. The event bus, settings, tracing, metrics, CI, and the Compose observability stack are already in the tree. They stay in the plan so the acceptance tests have an owner. What is not in the tree is the WebSocket audio path, the browser client, and `docs/benchmarks.md`.
+This phase finishes the process skeleton and measures the machines the later phases will run on. The event bus, settings, tracing, metrics, CI, the Compose observability stack, the WebSocket audio path, the browser client, and `docs/benchmarks.md` are in the tree. Model rows in that file stay `blocked` until weights exist. The plan lines stay so the acceptance tests have an owner.
 
 For the product, nothing else can be timed until a 20 ms PCM frame can enter a session and a benchmark has named the hardware tier. For a senior portfolio, the bus is the artifact that shows cancellation and backpressure as code rather than a diagram. The benchmark file is the artifact that shows model choice as a measurement rather than a preference.
 
@@ -127,11 +127,11 @@ Demo-able outcome: `docs/benchmarks.md` has tables whose cells came from a comma
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T1.4.1 | Benchmark driver: warmup, samples, p50, p95, command line, version | `evals/bench/harness.py` | T1.1.1 | 4 | forward | A fake sleep of 10 ms records p50 within 2 ms of 10 ms. The test uses a timer, not a model |
-| T1.4.2 | ASR finalize and RTF for Zipformer and for Whisper plus LocalAgreement-2 | `evals/bench/asr.py`, `docs/benchmarks.md` | T1.4.1 | 6 | forward | The markdown table is generated from the JSON log. Versions are the strings the libraries printed. A failed download is a row with `status: blocked` and no invented millisecond |
-| T1.4.3 | LLM time to first token and tokens per second | `evals/bench/llm.py`, `docs/benchmarks.md` | T1.4.1 | 4 | forward | Same JSON rule. Grammar on and off are two rows |
-| T1.4.4 | TTS time to first chunk, CPU and GPU if a GPU exists | `evals/bench/tts.py`, `docs/benchmarks.md` | T1.4.1 | 4 | forward | CPU row is mandatory. GPU row is `not_present` when `nvidia-smi` fails, not a guessed number |
-| T1.4.5 | Choose the hardware tier or record that the choice is blocked | `docs/adr/ADR-004-hardware-tier.md` | T1.4.2, T1.4.3, T1.4.4 | 2 | forward | ADR-004 states the tier from the table in the front matter. ADR-003 stays Proposed until a later ADR names exact builds |
+| T1.4.1 | Benchmark driver: warmup, samples, p50, p95, command line, version | `evals/bench/harness.py` | T1.1.1 | 4 | landed | A fake sleep of 10 ms records p50 within 2 ms of 10 ms. The test uses a timer, not a model |
+| T1.4.2 | ASR finalize and RTF for Zipformer and for Whisper plus LocalAgreement-2 | `evals/bench/asr.py`, `docs/benchmarks.md` | T1.4.1 | 6 | landed | The markdown table is generated from the JSON log. Versions are the strings the libraries printed. A failed download is a row with `status: blocked` and no invented millisecond |
+| T1.4.3 | LLM time to first token and tokens per second | `evals/bench/llm.py`, `docs/benchmarks.md` | T1.4.1 | 4 | landed | Same JSON rule. Grammar on and off are two rows |
+| T1.4.4 | TTS time to first chunk, CPU and GPU if a GPU exists | `evals/bench/tts.py`, `docs/benchmarks.md` | T1.4.1 | 4 | landed | CPU row is mandatory. GPU row is `not_present` when `nvidia-smi` fails, not a guessed number |
+| T1.4.5 | Choose the hardware tier or record that the choice is blocked | `docs/adr/ADR-004-hardware-tier.md` | T1.4.2, T1.4.3, T1.4.4 | 2 | landed | ADR-004 states the tier from the table in the front matter. ADR-003 stays Proposed until a later ADR names exact builds |
 
 Implementation notes. The driver writes `docs/results/bench/<utc>.json` and a human table. The human table is produced by the script so a hand edit cannot drift from the log. Warmup is 5 calls, then 20 measured calls, one model at a time, no other GPU process. LocalAgreement-2 in the bench is the prefix two consecutive hypotheses share. Stabilization delay in this phase is the wall time from end of a fixture file to the last committed word, not yet a streaming microphone. Phase 3 repeats it on the live socket.
 
@@ -175,9 +175,9 @@ Update `docs/ARCHITECTURE.md` with the WebSocket message types after T1.3.1. ADR
 - [x] T1.1.1 through T1.2.4 still pass after the WebSocket files land.
 - [x] T1.3.5 passes headless.
 - [x] `docs/results/phase1.md` records the headphone check without a blank result.
-- [ ] `docs/benchmarks.md` has JSON-backed rows or explicit `blocked` rows.
-- [ ] ADR-004 names a tier or names the missing measurement that blocks the tier.
-- [ ] No model version in the docs lacks the VERIFY tag unless it appears in the JSON log.
+- [x] `docs/benchmarks.md` has JSON-backed rows or explicit `blocked` rows.
+- [x] ADR-004 names a tier or names the missing measurement that blocks the tier.
+- [x] No model version in the docs lacks the VERIFY tag unless it appears in the JSON log.
 
 ## 1.10 Portfolio artifacts
 

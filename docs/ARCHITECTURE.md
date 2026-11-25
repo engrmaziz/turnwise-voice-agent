@@ -1,8 +1,8 @@
 # Architecture
 
-Turnwise is a local, full-duplex clinic receptionist. This milestone is the bus those stages will sit on: typed events, a per-call generation clock, bounded queues, and telemetry. No audio, recognizer, dialogue machine, tool, or model worker exists yet. The packages `models/`, `dialogue/`, `nlp/`, `tools/`, `evals/`, and `training/` say so in their modules.
+Turnwise is a local, full-duplex clinic receptionist. This milestone is the bus those stages sit on: typed events, a per-call generation clock, bounded queues, telemetry, and a PCM16 WebSocket. No recognizer, dialogue machine, tool, or model worker exists yet. `python -m evals.bench` times workers off the call path and writes `docs/benchmarks.md` from JSON.
 
-Design constraints are ADR-001 (the FSM owns state), ADR-002 (bounded queues and generation cancellation), and ADR-003 (model choice waits on benchmarks).
+Design constraints are ADR-001 (the FSM owns state), ADR-002 (bounded queues and generation cancellation), ADR-003 (model choice waits on measured rows), and ADR-004 (hardware tier, blocked until those rows exist).
 
 ## Pipeline
 
@@ -182,9 +182,10 @@ Settings and defaults are in `server/config.py` and `.env.example`.
 
 ## What this milestone does not do
 
-- No WebSocket, audio, VAD, ASR, NLU, FSM, tools, or TTS.
-- No model is pinned. ADR-003 stays Proposed until `docs/benchmarks.md` exists.
+- No VAD, ASR, NLU, FSM, tools, or TTS worker. The WebSocket accepts PCM and counts frames.
+- No model is pinned. ADR-003 stays Proposed. ADR-004 is blocked until ASR, LLM, and TTS rows are `ok`.
 - No session supervisor. A failed stage task stays failed until the owner closes it.
-- Playback acks and `frame_index` are on the event so later stages share a clock. Nothing fills them from a microphone yet.
+- Playback acks and `frame_index` are on the event so later stages share a clock.
 - PII redaction covers configured log keys and any `payload` key. A span that later sets a raw name as an attribute would bypass it; stage code must keep using ids and `model` only.
 - Native Windows does not pip-install NeMo text processing. That dependency is not in this milestone.
+- The hardware bench does not sit on the call path. A `blocked` or `not_present` cell is not a zero.
