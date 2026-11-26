@@ -66,6 +66,10 @@ def _ram_gb() -> float | None:
 
 
 def _ram_gb_windows() -> float | None:
+    # ctypes.windll exists only on Windows. The check belongs in this function
+    # so Linux mypy (GitHub Actions) does not see an undefined attribute.
+    if sys.platform != "win32":
+        return None
     import ctypes
 
     class _MemoryStatusEx(ctypes.Structure):
