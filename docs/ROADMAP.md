@@ -84,11 +84,13 @@ Done in Phase 7 (`docs/plan/07_phase_tts.md`, `docs/results/phase7.md`). TTS wei
 
 ## Phase 9 — Frustration and urgency
 
+Done in Phase 8 (`docs/plan/08_phase_paralinguistics_safety.md`, `docs/results/phase8.md`). Audio model off (ADR-011). Call-like 30 is `not_collected`. Fusion timeout path uses dialogue terms only. Starting weights cannot reach 0.65 without audio.
+
 - The urgent keyword path escalates with the classifier disabled, in a test.
-- False urgent escalation is reported on the non-urgent set.
+- False urgent escalation is reported on the non-urgent set (still the keyword path; no classifier false-urgent row).
 - If the audio classifier times out, the score uses repair count, repeated "no", and barge-in only.
 - Two turns over the threshold offer a human, shorten replies, and slow TTS.
-- A calibration curve is in the docs, with the limitation that acted-emotion corpora transfer poorly to calls.
+- A calibration curve is in the docs, with the limitation that acted-emotion corpora transfer poorly to calls. (`docs/results/phase8_calibration.md` is `not_collected`.)
 
 ## Phase 10 — Evaluation
 

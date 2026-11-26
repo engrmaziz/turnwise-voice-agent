@@ -99,6 +99,7 @@ class DialogueMachine:
         slots: dict[str, str],
         conf: dict[str, float] | None = None,
         source: str = "nlu",
+        offer_latched: bool = False,
     ) -> DialogueState:
         event = classify_event(self.state, spoken=spoken, intent=intent, settings=self.settings)
         return self.step(
@@ -112,6 +113,7 @@ class DialogueMachine:
                 roster=self.roster,
                 now=self.now,
                 timezone=self.timezone,
+                offer_latched=offer_latched,
                 source=source,
             )
         )

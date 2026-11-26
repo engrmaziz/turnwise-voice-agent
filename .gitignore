@@ -24,5 +24,6 @@ training/nlu/asr_fixture_rows.jsonl
 training/nlu/teacher_kept.jsonl
 training/nlu/golden.jsonl
 training/nlu/*.wav
+training/emotion/raw/
 data/*.sqlite
 data/*.sqlite-journal

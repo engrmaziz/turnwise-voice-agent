@@ -8,6 +8,7 @@ text = "Hello, this is Turnwise Clinic."
 id = "ask_slot"
 text = "I still need {slot}."
 ask = "I still need that detail."
+short = "What next?"
 
 [set_patient]
 id = "ask_intent"
@@ -25,6 +26,7 @@ text = "Are you calling to book, move, or cancel a visit?"
 [confirm]
 id = "confirm_readback"
 text = "I will book {doctor} on {date} at {time}. Is that right?"
+short = "Is that right?"
 
 [execute]
 id = "one_moment"
@@ -70,6 +72,11 @@ text = "Please spell that, or say the digits one at a time."
 id = "ask_slot"
 text = "I still need that detail."
 ask = "I still need that detail."
+short = "What next?"
+
+[offer_human]
+id = "offer_human"
+text = "Would you like me to get a person?"
 
 [warmup]
 greeting = "Hello, this is Turnwise Clinic."

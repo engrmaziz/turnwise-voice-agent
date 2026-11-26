@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 from zoneinfo import ZoneInfo
 
+from nlp.fusion import EmotionProbs
 from pipeline.errors import SessionNotFoundError
 from pipeline.event import Event, EventKind, JsonValue
 
@@ -36,13 +37,20 @@ class Session:
     __slots__ = (
         "_audio_quality",
         "_barge_in_enabled",
+        "_barged_this_turn",
         "_expected_slot",
         "_expected_vocab_id",
+        "_fusion_score",
         "_generation",
+        "_last_emotion",
         "_now",
+        "_offer_human",
+        "_offer_say_pending",
         "_on_barge_in",
         "_pcm",
         "_played_text",
+        "_repair_count",
+        "_repeated_no",
         "_session_id",
         "_speaking",
         "_stable_prefix",
@@ -83,6 +91,13 @@ class Session:
         self._played_text = ""
         self._stable_prefix = ""
         self._turn_end_ts: float | None = None
+        self._barged_this_turn = False
+        self._last_emotion: EmotionProbs | None = None
+        self._fusion_score = 0.0
+        self._offer_human = False
+        self._offer_say_pending = False
+        self._repair_count = 0
+        self._repeated_no = 0
 
     @property
     def session_id(self) -> str:
@@ -202,6 +217,7 @@ class Session:
         """Supersede the current generation and cancel registered speaking tasks."""
         self._generation += 1
         self._turn_id += 1
+        self._barged_this_turn = True
         self._pcm.clear()
         self._wire_pcm.clear()
         tasks = tuple(self._speaking)
@@ -252,6 +268,64 @@ class Session:
             payload=body,
             ts_monotonic=time.monotonic(),
         )
+
+    def take_barged(self) -> bool:
+        """Return and clear the barge-in flag so fusion counts it once per turn."""
+        flagged = self._barged_this_turn
+        self._barged_this_turn = False
+        return flagged
+
+    @property
+    def last_emotion(self) -> EmotionProbs | None:
+        return self._last_emotion
+
+    @last_emotion.setter
+    def last_emotion(self, value: EmotionProbs | None) -> None:
+        self._last_emotion = value
+
+    @property
+    def fusion_score(self) -> float:
+        return self._fusion_score
+
+    @fusion_score.setter
+    def fusion_score(self, value: float) -> None:
+        self._fusion_score = value
+
+    @property
+    def offer_human(self) -> bool:
+        return self._offer_human
+
+    @offer_human.setter
+    def offer_human(self, value: bool) -> None:
+        self._offer_human = value
+
+    def note_offer_say(self) -> None:
+        self._offer_say_pending = True
+
+    def take_offer_say(self) -> bool:
+        pending = self._offer_say_pending
+        self._offer_say_pending = False
+        return pending
+
+    @property
+    def repair_count(self) -> int:
+        return self._repair_count
+
+    @repair_count.setter
+    def repair_count(self, value: int) -> None:
+        if value < 0:
+            raise ValueError("repair_count must be >= 0")
+        self._repair_count = value
+
+    @property
+    def repeated_no(self) -> int:
+        return self._repeated_no
+
+    @repeated_no.setter
+    def repeated_no(self, value: int) -> None:
+        if value < 0:
+            raise ValueError("repeated_no must be >= 0")
+        self._repeated_no = value
 
     def _discard_speaking(self, task: asyncio.Task[None]) -> None:
         self._speaking.discard(task)

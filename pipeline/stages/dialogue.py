@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import structlog
 from opentelemetry.trace import get_current_span
 
+from dialogue.actions import offer_human
 from dialogue.confirm import needs_explicit_confirm
 from dialogue.context import StepContext
 from dialogue.execute import offer_booking, write_booking
@@ -19,6 +20,7 @@ from dialogue.filler import filler_event
 from dialogue.machine import DialogueMachine
 from dialogue.planner import select_template_text, speak
 from dialogue.slots import DialogueState, next_ask_slot
+from dialogue.table import classify_event
 from models.llm_client import LlmClient
 from nlp.hotwords import load_roster
 from pipeline.event import Event, EventKind, JsonValue
@@ -117,7 +119,33 @@ class DialogueHandler:
         started = time.perf_counter()
         span = get_current_span()
         span.set_attribute("model", "fsm")
-        state = self._machine.nlu(spoken=spoken, intent=intent, slots=slots)
+        event_name = classify_event(
+            self._machine.state,
+            spoken=spoken,
+            intent=intent,
+            settings=self._settings,
+        )
+        if event_name == "no":
+            self._session.repeated_no += 1
+        else:
+            self._session.repeated_no = 0
+        state = self._machine.nlu(
+            spoken=spoken,
+            intent=intent,
+            slots=slots,
+            offer_latched=self._session.offer_human,
+        )
+        attempts = state.attempts
+        self._session.repair_count = max(attempts.values()) if attempts else 0
+        if state.state_id in {"URGENT", "HANDOFF"}:
+            self._session.take_offer_say()
+        elif self._session.take_offer_say():
+            state = offer_human(
+                state,
+                StepContext(event="offer_human", settings=self._settings),
+            )
+            self._machine.state = state
+            self._session.expected_slot = "confirm"
         self._count_policy(state)
         state = await self._after(state)
         span.set_attribute("latency_ms", (time.perf_counter() - started) * 1000.0)
@@ -281,7 +309,9 @@ class DialogueHandler:
     async def _say(self, state: DialogueState) -> None:
         action = state.last_action or "say_greeting"
         try:
-            template_id, filled = select_template_text(action, state)
+            template_id, filled = select_template_text(
+                action, state, short=self._session.offer_human
+            )
         except ValueError:
             template_id = (state.last_template or "greet").split(":")[0]
             filled = state.played_text or template_id

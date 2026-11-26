@@ -20,6 +20,7 @@ class Template(BaseModel):
     id: str
     text: str
     ask: str = ""
+    short: str = ""
 
 
 class TemplateCatalog(BaseModel):
@@ -65,6 +66,7 @@ def load_templates(path: Path | None = None) -> TemplateCatalog:
             id=str(raw.get("id", action)),
             text=str(raw["text"]),
             ask=str(raw.get("ask", "")),
+            short=str(raw.get("short", "")),
         )
         by_action[action] = tmpl
         by_id[tmpl.id] = tmpl.text

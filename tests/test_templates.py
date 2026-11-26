@@ -47,3 +47,10 @@ def test_pending_slot_is_empty_and_ask_variant_is_used() -> None:
     assert template_id == "ask_slot"
     assert "Khan" not in text
     assert "I still need" in text
+
+
+def test_short_variants_for_ask_and_confirm() -> None:
+    catalog = load_templates()
+    assert catalog.require_action("ask_slot").short
+    assert catalog.require_action("confirm").short
+    assert catalog.require_action("offer_human").text == "Would you like me to get a person?"

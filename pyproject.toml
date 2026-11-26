@@ -1,7 +1,7 @@
 [project]
 name = "turnwise"
 version = "0.1.0"
-description = "Local full-duplex streaming voice agent. This release is the event bus, audio front end, stub ASR, turn-taking, spoken NLU, the dialogue FSM with SQLite tools, and stub streaming TTS."
+description = "Local full-duplex streaming voice agent. This release is the event bus, audio front end, stub ASR, turn-taking, spoken NLU, the dialogue FSM with SQLite tools, stub streaming TTS, and paralinguistic courtesy with emotion default-off."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",
@@ -114,6 +114,8 @@ ignore_missing_imports = true
 module = [
   "nemo_text_processing",
   "nemo_text_processing.*",
+  "transformers",
+  "funasr",
 ]
 ignore_missing_imports = true
 

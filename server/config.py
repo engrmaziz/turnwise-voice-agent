@@ -1,9 +1,10 @@
 """Typed process settings. Thresholds and endpoints live here, not in call sites."""
 
 from functools import lru_cache
+from typing import Self
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
@@ -129,6 +130,19 @@ class Settings(BaseSettings):
         "greeting,one_moment,could_you_repeat,headphones_required,"
         "seek_emergency,cannot_book_now,cannot_speak,goodbye"
     )
+    emotion_model_path: str = ""
+    emotion_model_enabled: bool = False
+    emotion_timeout_ms: int = 80
+    sentiment_enabled: bool = True
+    sentiment_model_enabled: bool = False
+    frustration_threshold: float = 0.65
+    frustration_turns: int = 2
+    tts_frustrated_speed: float = 0.9
+    fuse_w_audio: float = 0.4
+    fuse_w_text: float = 0.2
+    fuse_w_repair: float = 0.2
+    fuse_w_no: float = 0.1
+    fuse_w_barge: float = 0.1
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -198,6 +212,8 @@ class Settings(BaseSettings):
         "tts_later_min_words",
         "tts_max_hold_ms",
         "tts_timeout_ms",
+        "emotion_timeout_ms",
+        "frustration_turns",
     )
     @classmethod
     def at_least_one(cls, value: int) -> int:
@@ -250,6 +266,12 @@ class Settings(BaseSettings):
         "phonetic_margin",
         "confirm_explicit_below",
         "faq_min_score",
+        "frustration_threshold",
+        "fuse_w_audio",
+        "fuse_w_text",
+        "fuse_w_repair",
+        "fuse_w_no",
+        "fuse_w_barge",
     )
     @classmethod
     def unit_interval(cls, value: float) -> float:
@@ -264,7 +286,7 @@ class Settings(BaseSettings):
             raise ValueError("value must be >= 0")
         return value
 
-    @field_validator("tts_speed", "tts_digit_speed")
+    @field_validator("tts_speed", "tts_digit_speed", "tts_frustrated_speed")
     @classmethod
     def positive_speed(cls, value: float) -> float:
         if value <= 0:
@@ -326,6 +348,19 @@ class Settings(BaseSettings):
             if not part.isdigit() or int(part) < 1:
                 raise ValueError("sample rates must be positive integers")
         return ",".join(parts)
+
+    @model_validator(mode="after")
+    def fuse_weights_sum_to_one(self) -> Self:
+        total = (
+            self.fuse_w_audio
+            + self.fuse_w_text
+            + self.fuse_w_repair
+            + self.fuse_w_no
+            + self.fuse_w_barge
+        )
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError("fuse weights must sum to 1.0")
+        return self
 
     @property
     def pii_field_names(self) -> frozenset[str]:

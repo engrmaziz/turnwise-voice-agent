@@ -53,6 +53,10 @@ def test_health_and_empty_ttfa_histogram(settings: Settings) -> None:
     assert "turnwise_tts_cache_hits_total" in body
     assert "turnwise_tts_cache_misses_total" in body
     assert "turnwise_play_ack_wrong_stream_total" in body
+    assert "turnwise_emotion_seconds" in body
+    assert "turnwise_emotion_timeouts_total" in body
+    assert "turnwise_fusion_score" in body
+    assert "turnwise_offer_human_total" in body
     assert "turnwise_ttfa_seconds_count 0.0" in body
     assert "turnwise_ttfa_content_seconds_count 0.0" in body
 

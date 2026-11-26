@@ -71,10 +71,10 @@ Demo-able outcome: `docs/results/phase8.md` has a confusion matrix on a held-out
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T8.1.1 | License and download for CREMA-D and RAVDESS | `training/emotion/data.md`, `scripts/download_emotion.py` | T1.4.5 | 3 | forward | The markdown quotes the license URL and whether research-only use is allowed. If not allowed, the script exits 2 and training is `skipped` |
-| T8.1.2 | Map dataset labels onto calm / frustrated / distressed | `training/emotion/map_labels.py` | T8.1.1 | 3 | forward | Mapping table is in the file. Happy and neutral → calm. Angry and disgust → frustrated. Fear and sad → distressed. Unmapped labels are dropped and counted |
+| T8.1.1 | License and download for CREMA-D and RAVDESS | `training/emotion/data.md`, `scripts/download_emotion.py` | T1.4.5 | 3 | done | The markdown quotes the license URL and whether research-only use is allowed. If not allowed, the script exits 2 and training is `skipped` |
+| T8.1.2 | Map dataset labels onto calm / frustrated / distressed | `training/emotion/map_labels.py` | T8.1.1 | 3 | done | Mapping table is in the file. Happy and neutral → calm. Angry and disgust → frustrated. Fear and sad → distressed. Unmapped labels are dropped and counted |
 | T8.1.3 | Fine-tune wav2vec2 or load emotion2vec, chosen by held-out macro-F1 | `training/emotion/train.py` | T8.1.2 | 8 | slip | STARTING POINT: 3 epochs, lr 1e-5, batch 8. The script writes both candidates' macro-F1 if both run, and picks the higher. If only one library imports, that one is used and the other is `blocked` |
-| T8.1.4 | Export ONNX and load through the pool | `training/emotion/export.py`, `models/onnx_pool.py` | T8.1.1 | 3 | forward | Timeout path returns `None` to fusion. Generation mismatch drops the result. If T8.1.3 has not produced weights, this task loads a stub that always returns `None`. T8.1.3 later replaces the stub file |
+| T8.1.4 | Export ONNX and load through the pool | `training/emotion/export.py`, `models/emotion_pool.py` | T8.1.1 | 3 | done | Timeout path returns `None` to fusion. Generation mismatch drops the result. If T8.1.3 has not produced weights, this task loads a stub that always returns `None`. T8.1.3 later replaces the stub file |
 
 Implementation notes. T8.1.3 is slip because the week-15 demo does not need the audio model. T8.1.4 still lands a stub that always returns `None` so fusion tests run. Replacing the stub with the ONNX file is the same module. Class names stay three. A 7-class dataset is mapped, never exposed to the FSM.
 
@@ -91,9 +91,9 @@ Demo-able outcome: three repairs and two "no"s with no audio still exceed 0.65 u
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T8.2.1 | Text sentiment as a small lexicon plus optional model | `nlp/sentiment.py` | T8.1.4 | 3 | forward | Lexicon is deterministic. "please" and "thank you" raise the calm score. "stupid" and "useless" lower it. No cloud API. If a local model is added it is behind `sentiment_model_enabled` default false |
-| T8.2.2 | Implement `fuse` from settings weights | `nlp/fusion.py` | T8.2.1 | 3 | forward | `tests/test_fusion.py` the two cases in the demo-able outcome, plus audio timeout identical to `None` |
-| T8.2.3 | Read repair count, repeated no, barge-in from the session | `pipeline/stages/fusion.py` | T8.2.2, T6.2.2 | 2 | forward | A unit session with `attempts` and a barge-in flag produces the expected score within 1e-6 |
+| T8.2.1 | Text sentiment as a small lexicon plus optional model | `nlp/sentiment.py` | T8.1.4 | 3 | done | Lexicon is deterministic. "please" and "thank you" raise the calm score. "stupid" and "useless" lower it. No cloud API. If a local model is added it is behind `sentiment_model_enabled` default false |
+| T8.2.2 | Implement `fuse` from settings weights | `nlp/fusion.py` | T8.2.1 | 3 | done | `tests/test_fusion.py` the two cases in the demo-able outcome, plus audio timeout identical to `None` |
+| T8.2.3 | Read repair count, repeated no, barge-in from the session | `pipeline/stages/fusion.py` | T8.2.2, T6.2.2 | 2 | done | A unit session with `attempts` and a barge-in flag produces the expected score within 1e-6 |
 
 Implementation notes. Repeated "no" counts consecutive no answers on confirm, not the word "no" inside a repair ("Tuesday no Wednesday"). Disfluency already consumed that "no". The fusion stage must not double-count it. Weights are settings `fuse_w_audio`, `fuse_w_text`, `fuse_w_repair`, `fuse_w_no`, `fuse_w_barge` summing to 1.0. A startup check fails if they do not.
 
@@ -110,9 +110,9 @@ Demo-able outcome: turn 1 over threshold does not offer. Turn 2 does. A keyword 
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T8.3.1 | Two-turn latch | `dialogue/frustration.py` | T8.2.3 | 3 | forward | `tests/test_frustration_policy.py` one turn does not set `offer_human`. Two do. A below-threshold turn resets the count |
-| T8.3.2 | Short template set and TTS speed | `dialogue/templates.toml`, `pipeline/stages/tts_norm.py` | T8.3.1 | 3 | forward | Short templates exist for `ask_slot` and `confirm`. Speed becomes `tts_frustrated_speed` when the flag is set |
-| T8.3.3 | Offer does not replace `URGENT` | `dialogue/table.py` | T8.3.1, T6.6.3 | 2 | forward | Keyword plus high score still ends in `URGENT`, not `offer_human` |
+| T8.3.1 | Two-turn latch | `dialogue/frustration.py` | T8.2.3 | 3 | done | `tests/test_frustration_policy.py` one turn does not set `offer_human`. Two do. A below-threshold turn resets the count |
+| T8.3.2 | Short template set and TTS speed | `dialogue/templates.toml`, `pipeline/stages/tts_norm.py` | T8.3.1 | 3 | done | Short templates exist for `ask_slot` and `confirm`. Speed becomes `tts_frustrated_speed` when the flag is set |
+| T8.3.3 | Offer does not replace `URGENT` | `dialogue/table.py` | T8.3.1, T6.6.3 | 2 | done | Keyword plus high score still ends in `URGENT`, not `offer_human` |
 
 Implementation notes. The latch resets when the score is below threshold, so a single spike does not stick. `speak_to_human` intent still hands off on one turn without waiting for two frustrated turns. The offer question is template `offer_human`. Yes is the existing confirm path on that template, which is a yes/no slot, so "okay" is not a backchannel (T4.3.2).
 
@@ -129,9 +129,9 @@ Demo-able outcome: `docs/results/phase8_calibration.md` is a table of predicted 
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T8.4.1 | Label 30 call-like utterances or record that they were not collected | `training/emotion/call_like.jsonl` | T8.1.4 | 4 | slip | 30 lines with `label` and `source`. If the operator declines collection, the file contains one JSON object `{"status":"not_collected"}` |
-| T8.4.2 | Reliability table, 5 bins | `evals/emotion/calibrate.py` | T8.4.1 | 3 | slip | Script refuses to invent bins when status is `not_collected`. Otherwise writes ECE and a CSV |
-| T8.4.3 | Default flag and the limitation paragraph | `docs/results/phase8.md`, `server/config.py` | T8.4.2 | 2 | forward | `emotion_model_enabled` defaults false unless T8.4.2 wrote an ECE and the operator flips the flag in an ADR. The paragraph states acted-to-call shift as a limitation even if ECE looks good |
+| T8.4.1 | Label 30 call-like utterances or record that they were not collected | `training/emotion/call_like.jsonl` | T8.1.4 | 4 | done | 30 lines with `label` and `source`. If the operator declines collection, the file contains one JSON object `{"status":"not_collected"}` |
+| T8.4.2 | Reliability table, 5 bins | `evals/emotion/calibrate.py` | T8.4.1 | 3 | done | Script refuses to invent bins when status is `not_collected`. Otherwise writes ECE and a CSV |
+| T8.4.3 | Default flag and the limitation paragraph | `docs/results/phase8.md`, `server/config.py` | T8.4.2 | 2 | done | `emotion_model_enabled` defaults false unless T8.4.2 wrote an ECE and the operator flips the flag in an ADR. The paragraph states acted-to-call shift as a limitation even if ECE looks good |
 
 Implementation notes. Thirty utterances are not a clinical study. The write-up must not claim they are. ECE on 30 bins of 6 is noisy; the table is an honesty artifact. Interviewers who have shipped emotion models look for this caveat. The default-off flag is the product consequence.
 
@@ -173,13 +173,13 @@ ADR-011 emotion default-off, written when T8.4.3 lands, even if the operator lat
 
 ## 8.9 Exit criteria and phase gate
 
-- [ ] Keyword path still tested with emotion unloaded.
-- [ ] Fusion works with audio `None`.
-- [ ] Two-turn offer, one-turn no offer, below-threshold reset.
-- [ ] Offer is not handoff.
-- [ ] Calibration file or `not_collected`.
-- [ ] `emotion_model_enabled` default false unless ADR-011 says true.
-- [ ] Limitation paragraph in the results file.
+- [x] Keyword path still tested with emotion unloaded.
+- [x] Fusion works with audio `None`.
+- [x] Two-turn offer, one-turn no offer, below-threshold reset.
+- [x] Offer is not handoff.
+- [x] Calibration file or `not_collected`.
+- [x] `emotion_model_enabled` default false unless ADR-011 says true.
+- [x] Limitation paragraph in the results file.
 
 ## 8.10 Portfolio artifacts
 

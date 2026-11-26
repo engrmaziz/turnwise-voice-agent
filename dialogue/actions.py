@@ -195,6 +195,11 @@ def clear_pending(state: DialogueState, _ctx: StepContext) -> DialogueState:
     return cleared.model_copy(update={"last_action": "clear_pending", "last_template": "ask_slot"})
 
 
+def offer_human(state: DialogueState, _ctx: StepContext) -> DialogueState:
+    """Ask whether to get a person. Does not change state_id and is not HANDOFF."""
+    return state.model_copy(update={"last_action": "offer_human", "last_template": "offer_human"})
+
+
 def _invalid_names(slots: dict[str, SlotValue], ctx: StepContext) -> set[str]:
     from datetime import datetime
 
@@ -222,4 +227,5 @@ ACTIONS: dict[str, ActionFn] = {
     "say_goodbye": say_goodbye,
     "repair": repair,
     "clear_pending": clear_pending,
+    "offer_human": offer_human,
 }

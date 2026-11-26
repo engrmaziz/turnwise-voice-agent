@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from dialogue.templates import load_templates
 from models.asr_pool import AsrPool
+from models.emotion_pool import EmotionScorer
 from models.llm_client import LlmClient
 from models.nlu_pool import NluScorer
 from models.onnx_pool import TurnScorer
@@ -61,6 +62,7 @@ class AppContainer:
     llm_client: LlmClient | None = None
     tts_pool: TtsPool | None = None
     tts_cache: TtsCache | None = None
+    emotion_scorer: EmotionScorer | None = None
 
 
 class TurnwiseApp(FastAPI):
@@ -86,6 +88,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     asr_pool = _load_asr(resolved, metrics)
     turn_scorer = _load_turn(resolved)
     nlu_scorer = _load_nlu(resolved)
+    emotion_scorer = _load_emotion(resolved)
     llm_client = LlmClient.unavailable(timeout_ms=resolved.llm_timeout_ms)
     load_templates()
     tts_pool = load_tts_pool(resolved)
@@ -112,6 +115,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         llm_client=llm_client,
         tts_pool=tts_pool,
         tts_cache=tts_cache,
+        emotion_scorer=emotion_scorer,
     )
 
     @asynccontextmanager
@@ -140,6 +144,9 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
             tts = container.tts_pool
             if tts is not None:
                 tts.close()
+            emotion = container.emotion_scorer
+            if emotion is not None:
+                emotion.close()
 
     app = TurnwiseApp(container=container, lifespan=lifespan)
     client_dir = Path(__file__).resolve().parent.parent / "client"
@@ -207,6 +214,15 @@ def _load_nlu(settings: Settings) -> NluScorer:
         feature_dim=settings.nlu_feature_dim,
         ngram=settings.nlu_ngram,
     )
+
+
+def _load_emotion(settings: Settings) -> EmotionScorer:
+    if not settings.emotion_model_enabled:
+        return EmotionScorer.stub(timeout_ms=settings.emotion_timeout_ms)
+    path = Path(settings.emotion_model_path.strip())
+    if not settings.emotion_model_path.strip() or not path.is_file():
+        return EmotionScorer.stub(timeout_ms=settings.emotion_timeout_ms)
+    return EmotionScorer.load(path, timeout_ms=settings.emotion_timeout_ms)
 
 
 def _load_vad(settings: Settings) -> VadEngine:

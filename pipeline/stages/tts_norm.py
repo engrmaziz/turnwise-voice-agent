@@ -60,7 +60,12 @@ class TtsNormHandler:
         elapsed = time.perf_counter() - started
         self._metrics.tn_seconds.observe(elapsed)
         get_current_span().set_attribute("latency_ms", elapsed * 1000.0)
-        speed = self._settings.tts_digit_speed if context.digit_mode else self._settings.tts_speed
+        if context.digit_mode:
+            speed = self._settings.tts_digit_speed
+        elif self._session.offer_human:
+            speed = self._settings.tts_frustrated_speed
+        else:
+            speed = self._settings.tts_speed
         key = cache_key(spoken, self._settings.tts_voice, speed)
         job = TtsJob(
             session_id=self._session.session_id,

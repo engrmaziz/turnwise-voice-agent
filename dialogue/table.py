@@ -126,6 +126,11 @@ def classify_event(
     if state.state_id != "HANDOFF" and intent == "speak_to_human":
         return "speak_to_human"
     lowered = spoken.strip().casefold()
+    offering = state.last_template == "offer_human" or state.last_action == "offer_human"
+    if offering and lowered in _YES:
+        return "offer_human_yes"
+    if offering and lowered in _NO:
+        return "nlu"
     if state.state_id == "CONFIRM" and lowered in _YES:
         return "yes"
     if state.state_id == "CONFIRM" and lowered in _NO:

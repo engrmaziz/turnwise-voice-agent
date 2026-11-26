@@ -102,6 +102,10 @@ class StageMetrics:
     tts_cache_misses: Counter
     tts_cache_miss_warmup: Counter
     play_ack_wrong_stream: Counter
+    emotion_seconds: Histogram
+    emotion_timeouts: Counter
+    fusion_score: Histogram
+    offer_human: Counter
 
 
 def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
@@ -482,6 +486,28 @@ def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
         play_ack_wrong_stream=Counter(
             "turnwise_play_ack_wrong_stream",
             "Play-ack messages whose stream field was cap, not play.",
+            registry=registry,
+        ),
+        emotion_seconds=Histogram(
+            "turnwise_emotion_seconds",
+            "Utterance emotion wall time including executor wait.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        emotion_timeouts=Counter(
+            "turnwise_emotion_timeouts",
+            "Emotion inferences that exceeded emotion_timeout_ms.",
+            registry=registry,
+        ),
+        fusion_score=Histogram(
+            "turnwise_fusion_score",
+            "Late-fusion frustration score in [0, 1].",
+            buckets=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.65, 0.8, 1.0),
+            registry=registry,
+        ),
+        offer_human=Counter(
+            "turnwise_offer_human",
+            "Sessions that latched a courtesy offer after two over-threshold turns.",
             registry=registry,
         ),
     )

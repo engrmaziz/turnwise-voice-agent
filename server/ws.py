@@ -15,6 +15,7 @@ from opentelemetry.trace import Tracer, get_tracer
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from models.asr_pool import AsrPool
+from models.emotion_pool import EmotionScorer
 from models.llm_client import LlmClient
 from models.nlu_pool import NluScorer
 from models.onnx_pool import TurnScorer
@@ -34,7 +35,9 @@ from pipeline.stages.audio_out import AudioOutHandler
 from pipeline.stages.barge import BargeHandler
 from pipeline.stages.chunker import ChunkerHandler
 from pipeline.stages.dialogue import DialogueHandler
+from pipeline.stages.emotion import EmotionHandler
 from pipeline.stages.endpoint import EndpointHandler
+from pipeline.stages.fusion import FusionHandler
 from pipeline.stages.nlu import NluHandler
 from pipeline.stages.tts_norm import TtsNormHandler
 from pipeline.stages.vad import VadHandler
@@ -70,6 +73,7 @@ class WsContainer(Protocol):
     llm_client: LlmClient | None
     tts_pool: TtsPool | None
     tts_cache: TtsCache | None
+    emotion_scorer: EmotionScorer | None
 
     @property
     def make_audio_handler(self) -> Callable[[], AudioInHandler]: ...
@@ -84,6 +88,8 @@ class LiveCall:
     endpoint_stage: Stage
     barge_stage: Stage
     nlu_stage: Stage
+    emotion_stage: Stage
+    fusion_stage: Stage
     dialogue_stage: Stage
     chunker_stage: Stage
     tts_norm_stage: Stage
@@ -256,6 +262,38 @@ async def _on_hello(
         tracer=tracer,
         metrics=container.metrics,
     )
+    emotion = container.emotion_scorer
+    if emotion is None:
+        emotion = EmotionScorer.stub(timeout_ms=settings.emotion_timeout_ms)
+    emotion_handler = EmotionHandler(
+        session=session,
+        settings=settings,
+        scorer=emotion,
+        metrics=container.metrics,
+    )
+    emotion_stage = Stage(
+        name="emotion",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=emotion_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
+    fusion_handler = FusionHandler(
+        session=session,
+        settings=settings,
+        metrics=container.metrics,
+    )
+    fusion_stage = Stage(
+        name="fusion",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=fusion_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
     tts_pool = container.tts_pool
     if tts_pool is None:
         tts_pool = TtsPool.stub(
@@ -314,16 +352,17 @@ async def _on_hello(
         metrics=container.metrics,
     )
     dialogue_handler.set_forward(chunker_stage.emit)
-    nlu_handler.set_forward(dialogue_stage.emit)
+    nlu_handler.set_forward(fusion_stage.emit)
+    fusion_handler.set_forward(dialogue_stage.emit)
     barge_handler.set_forward(fan_out(chunker_stage.emit, audio_out_stage.emit))
     asr_handler.set_forward(fan_out(endpoint_stage.emit, barge_stage.emit, nlu_stage.emit))
-    endpoint_handler.set_forward(fan_out(asr_stage.emit, barge_stage.emit))
+    endpoint_handler.set_forward(fan_out(asr_stage.emit, barge_stage.emit, emotion_stage.emit))
     vad_handler = VadHandler(
         session=session,
         settings=settings,
         engine=container.vad_engine,
         metrics=container.metrics,
-        forward=fan_out(asr_stage.emit, endpoint_stage.emit, barge_stage.emit),
+        forward=fan_out(asr_stage.emit, endpoint_stage.emit, barge_stage.emit, emotion_stage.emit),
     )
     vad_stage = Stage(
         name="vad",
@@ -358,7 +397,9 @@ async def _on_hello(
     tts_norm_stage.start()
     chunker_stage.start()
     dialogue_stage.start()
+    fusion_stage.start()
     nlu_stage.start()
+    emotion_stage.start()
     asr_stage.start()
     endpoint_stage.start()
     barge_stage.start()
@@ -381,6 +422,8 @@ async def _on_hello(
         endpoint_stage=endpoint_stage,
         barge_stage=barge_stage,
         nlu_stage=nlu_stage,
+        emotion_stage=emotion_stage,
+        fusion_stage=fusion_stage,
         dialogue_stage=dialogue_stage,
         chunker_stage=chunker_stage,
         tts_norm_stage=tts_norm_stage,
@@ -474,6 +517,8 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
         await asyncio.wait_for(call.endpoint_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.barge_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.nlu_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.emotion_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.fusion_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.dialogue_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.chunker_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.tts_norm_stage.inbox.join(), timeout=2.0)
@@ -499,6 +544,8 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
         call.endpoint_stage,
         call.barge_stage,
         call.nlu_stage,
+        call.emotion_stage,
+        call.fusion_stage,
         call.dialogue_stage,
         call.chunker_stage,
         call.tts_norm_stage,

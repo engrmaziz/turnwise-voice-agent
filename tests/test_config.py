@@ -53,6 +53,21 @@ def test_default_backchannel_list_excludes_yes() -> None:
     assert settings.tts_frame_ms == 20
     assert settings.tts_first_chunk_min_words == 4
     assert settings.tts_timeout_ms == 800
+    assert settings.emotion_model_enabled is False
+    assert settings.emotion_timeout_ms == 80
+    assert settings.sentiment_enabled is True
+    assert settings.sentiment_model_enabled is False
+    assert settings.frustration_threshold == 0.65
+    assert settings.frustration_turns == 2
+    assert settings.tts_frustrated_speed == 0.9
+    assert (
+        settings.fuse_w_audio
+        + settings.fuse_w_text
+        + settings.fuse_w_repair
+        + settings.fuse_w_no
+        + settings.fuse_w_barge
+        == 1.0
+    )
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:

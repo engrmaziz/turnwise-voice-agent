@@ -42,6 +42,8 @@ def select_template_text(
     action: str,
     state: DialogueState,
     catalog: TemplateCatalog | None = None,
+    *,
+    short: bool = False,
 ) -> tuple[str, str]:
     loaded = catalog if catalog is not None else load_templates()
     tmpl = loaded.require_action(action)
@@ -53,11 +55,13 @@ def select_template_text(
         confirmed = {**confirmed, "slot": slot}
     chosen_id = tmpl.id
     chosen_text = tmpl.text
-    if tmpl.ask and missing_required(state.intent, state.slots):
+    if short and tmpl.short:
+        chosen_text = tmpl.short
+    elif tmpl.ask and missing_required(state.intent, state.slots):
         chosen_text = tmpl.ask
     override = (state.last_template or "").split(":")[0]
     if override and override != tmpl.id:
-        chosen_id, chosen_text = _override_template(loaded, tmpl, override, state)
+        chosen_id, chosen_text = _override_template(loaded, tmpl, override, state, short=short)
     return chosen_id, fill_template(chosen_text, confirmed)
 
 
@@ -66,11 +70,15 @@ def _override_template(
     tmpl: Template,
     override: str,
     state: DialogueState,
+    *,
+    short: bool = False,
 ) -> tuple[str, str]:
     if override in loaded.by_action:
         other = loaded.by_action[override]
         text = other.text
-        if other.ask and missing_required(state.intent, state.slots):
+        if short and other.short:
+            text = other.short
+        elif other.ask and missing_required(state.intent, state.slots):
             text = other.ask
         return other.id, text
     alt = loaded.by_id.get(override) or loaded.warmup.get(override)
