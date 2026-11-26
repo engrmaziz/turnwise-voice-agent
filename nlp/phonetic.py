@@ -187,9 +187,7 @@ def resolve_entity(heard: str, candidates: list[str], settings: Settings) -> Res
         return ResolveResult(
             entity_id=None, candidates=names, top_score=top_score, runner_up=runner
         )
-    return ResolveResult(
-        entity_id=top_id, candidates=names, top_score=top_score, runner_up=runner
-    )
+    return ResolveResult(entity_id=top_id, candidates=names, top_score=top_score, runner_up=runner)
 
 
 def _jaro(left: str, right: str) -> float:
@@ -223,6 +221,4 @@ def _jaro(left: str, right: str) -> float:
             trans += 1
         k += 1
     trans_f = trans / 2.0
-    return (
-        matches / len_l + matches / len_r + (matches - trans_f) / matches
-    ) / 3.0
+    return (matches / len_l + matches / len_r + (matches - trans_f) / matches) / 3.0

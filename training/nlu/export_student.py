@@ -75,9 +75,7 @@ def _save_linear(path: Path, weights: object, bias: object, name: str) -> None:
         [y],
         [numpy_helper.from_array(w, name="W"), numpy_helper.from_array(b, name="B")],
     )
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_opsetid("", 13)], ir_version=8
-    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)], ir_version=8)
     onnx.save(model, path)
 
 

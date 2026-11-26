@@ -66,9 +66,7 @@ def score_file(path: Path) -> dict[str, object]:
         "n": len(rows),
         "reviewers": sorted({row.reviewer for row in rows}),
         "identity_intent_accuracy": intent_accuracy(gold_intents, gold_intents),
-        "identity_slot_f1": sum(
-            slot_micro_f1(row.bio_asr, row.bio_asr) for row in rows
-        )
+        "identity_slot_f1": sum(slot_micro_f1(row.bio_asr, row.bio_asr) for row in rows)
         / len(rows),
         "note": "identity ceiling only; unpublished unless golden is 500 reviewed rows",
     }

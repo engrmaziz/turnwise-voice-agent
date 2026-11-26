@@ -13,9 +13,7 @@ from nlp.nlu_vocab import INTENTS, SLOT_KEYS
 
 INTENT_SLOTS: dict[str, frozenset[str]] = {
     "book": frozenset({"patient_name", "phone", "doctor", "date", "time", "dob", "reason"}),
-    "reschedule": frozenset(
-        {"appointment_id", "patient_name", "phone", "date", "time", "doctor"}
-    ),
+    "reschedule": frozenset({"appointment_id", "patient_name", "phone", "date", "time", "doctor"}),
     "cancel": frozenset({"appointment_id", "patient_name", "phone", "date"}),
     "check_appointment": frozenset({"patient_name", "phone", "appointment_id", "date"}),
     "faq": frozenset({"faq_query"}),

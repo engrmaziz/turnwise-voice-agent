@@ -102,9 +102,7 @@ class NluScorer:
         bio_in = bio_sess.get_inputs()[0].name
 
         def infer_sync(text: str) -> NluHypothesis:
-            x = np.asarray(
-                [intent_features(text, dim=feature_dim, ngram=ngram)], dtype=np.float32
-            )
+            x = np.asarray([intent_features(text, dim=feature_dim, ngram=ngram)], dtype=np.float32)
             intent_out = np.ravel(intent_sess.run(None, {intent_in: x})[0])
             intent_i = int(np.argmax(intent_out))
             tokens = tokenize(text)

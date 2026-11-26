@@ -49,9 +49,7 @@ def measure_nlu_latency(settings: Settings) -> BenchRow:
 def main() -> int:
     settings = Settings()
     if not settings.nlu_model_path.strip():
-        settings = settings.model_copy(
-            update={"nlu_model_path": "models/weights/nlu_intent.onnx"}
-        )
+        settings = settings.model_copy(update={"nlu_model_path": "models/weights/nlu_intent.onnx"})
     row = measure_nlu_latency(settings)
     out = Path("docs/results/phase5_nlu_latency.json")
     out.parent.mkdir(parents=True, exist_ok=True)

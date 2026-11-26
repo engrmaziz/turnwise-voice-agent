@@ -20,6 +20,7 @@ class TruncationRow(TypedDict):
     complete: int
     source: str
 
+
 _WEEKDAYS = frozenset(
     {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
 )
@@ -138,9 +139,7 @@ def truncation_rows(sentence: str) -> list[TruncationRow]:
     if not words:
         return []
     slot = slot_for(sentence)
-    rows: list[TruncationRow] = [
-        {"text": sentence, "slot": slot, "complete": 1, "source": "full"}
-    ]
+    rows: list[TruncationRow] = [{"text": sentence, "slot": slot, "complete": 1, "source": "full"}]
     first = words[0]
     if first.lower() in _WEEKDAYS and len(words) > 1:
         rows.append({"text": first, "slot": "date", "complete": 1, "source": "weekday"})
