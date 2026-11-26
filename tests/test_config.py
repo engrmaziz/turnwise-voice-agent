@@ -34,6 +34,14 @@ def test_pii_field_names_split() -> None:
     assert settings.pii_field_names == frozenset({"phone", "dob"})
 
 
+def test_default_backchannel_list_excludes_yes() -> None:
+    settings = Settings()
+    assert "yes" not in settings.backchannel_list
+    assert settings.backchannel_list == ("mm-hmm", "mhm", "uh-huh", "yeah", "ok", "okay")
+    assert settings.endpoint_digit_patience_ms == 1000
+    assert settings.turn_model_enabled is True
+
+
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
     get_settings.cache_clear()
     monkeypatch.setenv("TURNWISE_STAGE_QUEUE_MAXSIZE", "4")

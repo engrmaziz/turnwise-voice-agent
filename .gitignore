@@ -17,3 +17,4 @@ Turnwise_Execution_Plan.docx
 *.onnx
 *.gguf
 models/weights/
+training/turn/truncation.jsonl

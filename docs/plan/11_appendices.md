@@ -44,18 +44,18 @@ Environment prefix `TURNWISE_`. Types are Python types on `Settings`. STARTING P
 | `hotword_score` | float | 1.5 STARTING POINT | Bias score | 3 T3.3.2 |
 | `clinic_timezone` | str | `America/New_York` | Temporal resolver | 3 T3.5.1 |
 | `doctor_roster_path` | str | `data/doctors.txt` | Closed set | 3 T3.3.1 |
-| `endpoint_digit_patience_ms` | int | 1000 | Phone/DOB wait | 4 T4.1.1 |
-| `endpoint_digit_hard_ms` | int | 2000 | Phone/DOB ceiling | 4 T4.1.1 |
-| `endpoint_hard_silence_ms` | int | 1200 | Non-digit ceiling | 4 T4.1.1 |
-| `endpoint_high_p` | float | 0.85 STARTING POINT | High completeness | 4 T4.1.1 |
-| `endpoint_high_silence_ms` | int | 200 | Floor with high p | 4 T4.1.1 |
-| `endpoint_mid_p` | float | 0.5 STARTING POINT | Mid completeness | 4 T4.1.1 |
-| `endpoint_mid_silence_ms` | int | 500 | Floor with mid p | 4 T4.1.1 |
-| `endpoint_default_silence_ms` | int | 800 | Default silence | 4 T4.1.1 |
-| `turn_timeout_ms` | int | 20 | Classifier timeout | 4 T4.2.3 |
-| `turn_model_enabled` | bool | false until T4.2.4 | Hybrid endpoint | 4 T4.2.4 |
-| `barge_in_min_speech_ms` | int | 250 | Barge-in speech | 4 T4.3.1 |
-| `backchannel_phrases` | str | `mm-hmm,mhm,uh-huh,yeah,ok,okay` | Not including yes | 4 T4.3.2 |
+| `endpoint_digit_patience_ms` | int | 1000 | Phone/DOB wait | 4 landed |
+| `endpoint_digit_hard_ms` | int | 2000 | Phone/DOB ceiling | 4 landed |
+| `endpoint_hard_silence_ms` | int | 1200 | Non-digit ceiling | 4 landed |
+| `endpoint_high_p` | float | 0.85 STARTING POINT | High completeness | 4 landed |
+| `endpoint_high_silence_ms` | int | 200 | Floor with high p | 4 landed |
+| `endpoint_mid_p` | float | 0.5 STARTING POINT | Mid completeness | 4 landed |
+| `endpoint_mid_silence_ms` | int | 500 | Floor with mid p | 4 landed |
+| `endpoint_default_silence_ms` | int | 800 | Default silence | 4 landed |
+| `turn_timeout_ms` | int | 20 | Classifier timeout | 4 landed |
+| `turn_model_enabled` | bool | true after T4.2.4 met 10 ms | Hybrid endpoint | 4 landed |
+| `barge_in_min_speech_ms` | int | 250 | Barge-in speech | 4 landed |
+| `backchannel_phrases` | str | `mm-hmm,mhm,uh-huh,yeah,ok,okay` | Not including yes | 4 landed |
 | `nlu_model_path` | str | empty until export | Student ONNX | 5 T5.4.2 |
 | `nlu_timeout_ms` | int | 40 | Student timeout | 5 T5.4.3 |
 | `nlu_min_intent_confidence` | float | 0.6 STARTING POINT | Below → proposal path | 5 T5.4.3 |

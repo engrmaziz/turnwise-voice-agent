@@ -12,6 +12,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_l
 from pydantic import BaseModel
 
 from models.asr_pool import AsrPool
+from models.onnx_pool import TurnScorer
 from models.vad_pool import VadEngine, VadPool
 from pipeline.metrics import StageMetrics, build_stage_metrics
 from pipeline.session import SessionStore
@@ -50,6 +51,7 @@ class AppContainer:
     make_audio_handler: Callable[[], AudioInHandler] = field(default=new_audio_handler)
     vad_engine: VadEngine = field(default_factory=unavailable_vad)
     asr_pool: AsrPool | None = None
+    turn_scorer: TurnScorer | None = None
 
 
 class TurnwiseApp(FastAPI):
@@ -73,6 +75,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     metrics = build_stage_metrics(registry)
     vad_engine = _load_vad(resolved)
     asr_pool = _load_asr(resolved, metrics)
+    turn_scorer = _load_turn(resolved)
     container = AppContainer(
         settings=resolved,
         registry=registry,
@@ -85,6 +88,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         closed_snapshots=[],
         vad_engine=vad_engine,
         asr_pool=asr_pool,
+        turn_scorer=turn_scorer,
     )
 
     @asynccontextmanager
@@ -104,6 +108,9 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
             pool = container.asr_pool
             if pool is not None:
                 pool.close()
+            scorer = container.turn_scorer
+            if scorer is not None:
+                scorer.close()
 
     app = TurnwiseApp(container=container, lifespan=lifespan)
     client_dir = Path(__file__).resolve().parent.parent / "client"
@@ -143,6 +150,18 @@ def _load_asr(settings: Settings, metrics: StageMetrics) -> AsrPool:
     if backend in {"", "stub"}:
         return AsrPool.stub(settings, metrics)
     return AsrPool.load_real(settings, metrics)
+
+
+def _load_turn(settings: Settings) -> TurnScorer:
+    path = Path(settings.turn_onnx_path)
+    if not path.is_file():
+        return TurnScorer.unavailable(timeout_ms=settings.turn_timeout_ms)
+    return TurnScorer.load(
+        path,
+        timeout_ms=settings.turn_timeout_ms,
+        feature_dim=settings.turn_feature_dim,
+        ngram=settings.turn_ngram,
+    )
 
 
 def _load_vad(settings: Settings) -> VadEngine:

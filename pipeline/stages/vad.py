@@ -183,10 +183,6 @@ class VadHandler:
             frame_index=event.frame_index,
             preroll_bytes=len(snapshot),
         )
-        if self._session.speaking_task_count > 0:
-            self._session.request_barge_in()
-            self._generation = self._session.generation
-            self._state = self._engine.new_state()
         self._session.put_pcm(start_index, snapshot)
         if self._forward is not None:
             await self._forward(event)

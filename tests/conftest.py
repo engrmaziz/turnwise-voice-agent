@@ -39,6 +39,8 @@ def settings() -> Settings:
         pii_fields="patient_name,name,dob,date_of_birth,phone",
         vad_onnx_path="models/weights/missing.onnx",
         vad_timeout_ms=200,
+        turn_onnx_path="models/weights/missing.onnx",
+        turn_model_enabled=False,
     )
 
 

@@ -159,6 +159,7 @@ class AsrPool:
             self._owns_executor = False
             self._executor = executor
         self._seq = 0
+        self._closed = False
         self._queue: asyncio.PriorityQueue[tuple[int, int]] | None = None
         self._jobs: dict[int, _Job] = {}
         self._worker: asyncio.Task[None] | None = None
@@ -215,6 +216,8 @@ class AsrPool:
         live: LiveGeneration,
         speaking: bool,
     ) -> AsrHypothesis | None:
+        if self._closed:
+            raise TimeoutError("asr pool closed")
         self._ensure_worker()
         loop = asyncio.get_running_loop()
         future: asyncio.Future[AsrHypothesis | None] = loop.create_future()
@@ -239,6 +242,7 @@ class AsrPool:
             raise
 
     def close(self) -> None:
+        self._closed = True
         worker = self._worker
         if worker is not None and not worker.done():
             worker.cancel()
@@ -247,6 +251,8 @@ class AsrPool:
             self._executor.shutdown(wait=False)
 
     def _ensure_worker(self) -> None:
+        if self._closed:
+            raise TimeoutError("asr pool closed")
         loop = asyncio.get_running_loop()
         if self._queue is None:
             self._queue = asyncio.PriorityQueue()
@@ -262,8 +268,20 @@ class AsrPool:
                 if job is None or job.future.done():
                     continue
                 try:
+                    if self._closed:
+                        if not job.future.done():
+                            job.future.set_result(None)
+                        continue
                     loop = asyncio.get_running_loop()
                     result = await loop.run_in_executor(self._executor, job.fn)
+                except RuntimeError as exc:
+                    if self._closed or "shutdown" in str(exc).lower():
+                        if not job.future.done():
+                            job.future.set_result(None)
+                        continue
+                    if not job.future.done():
+                        job.future.set_exception(exc)
+                    continue
                 except Exception as exc:
                     if not job.future.done():
                         job.future.set_exception(exc)

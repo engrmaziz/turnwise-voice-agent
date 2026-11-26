@@ -75,4 +75,5 @@ async def test_preroll_survives_barge_in(harness: Harness) -> None:
     stored = harness.session.get_pcm(started_at)
     assert stored is not None
     assert len(stored) > 640
-    assert harness.session.generation == 1
+    # VAD no longer auto-barges. Generation stays 0 until the barge-in stage fires.
+    assert harness.session.generation == 0

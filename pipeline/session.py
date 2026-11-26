@@ -27,7 +27,7 @@ class Session:
     tasks. There is no await between the increment and the cancels, so a task
     that resumes afterwards observes the new generation. The turn increment
     keeps the interrupted agent utterance and the caller's new speech in
-    different traces.
+    different traces. ``request_barge_in`` is the barge-in stage hook, not VAD.
 
     ``session_id`` must be an opaque id. Names, dates of birth, and phone
     numbers do not belong in it; logs and spans record it in the clear.
@@ -36,14 +36,18 @@ class Session:
     __slots__ = (
         "_audio_quality",
         "_barge_in_enabled",
+        "_expected_slot",
         "_expected_vocab_id",
         "_generation",
         "_now",
         "_on_barge_in",
         "_pcm",
+        "_played_text",
         "_session_id",
         "_speaking",
+        "_stable_prefix",
         "_timezone",
+        "_turn_end_ts",
         "_turn_id",
         "_wire_pcm",
     )
@@ -75,6 +79,10 @@ class Session:
         else:
             self._now = now
         self._expected_vocab_id = "greet"
+        self._expected_slot = "none"
+        self._played_text = ""
+        self._stable_prefix = ""
+        self._turn_end_ts: float | None = None
 
     @property
     def session_id(self) -> str:
@@ -142,6 +150,46 @@ class Session:
         if not value.strip():
             raise ValueError("expected_vocab_id must be non-empty")
         self._expected_vocab_id = value.strip()
+
+    @property
+    def expected_slot(self) -> str:
+        return self._expected_slot
+
+    @expected_slot.setter
+    def expected_slot(self, value: str) -> None:
+        if not value.strip():
+            raise ValueError("expected_slot must be non-empty")
+        self._expected_slot = value.strip()
+
+    @property
+    def played_text(self) -> str:
+        return self._played_text
+
+    @played_text.setter
+    def played_text(self, value: str) -> None:
+        self._played_text = value
+
+    @property
+    def stable_prefix(self) -> str:
+        return self._stable_prefix
+
+    @stable_prefix.setter
+    def stable_prefix(self, value: str) -> None:
+        self._stable_prefix = value
+
+    @property
+    def turn_end_ts(self) -> float | None:
+        return self._turn_end_ts
+
+    @turn_end_ts.setter
+    def turn_end_ts(self, value: float | None) -> None:
+        self._turn_end_ts = value
+
+    def snapshot_pcm(self) -> dict[int, bytes]:
+        return dict(self._pcm)
+
+    def restore_pcm(self, frames: dict[int, bytes]) -> None:
+        self._pcm.update(frames)
 
     def request_barge_in(self) -> bool:
         """Run ``barge_in`` only when the client reported AEC on."""

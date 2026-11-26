@@ -65,9 +65,9 @@ Demo-able outcome: a phone string with 700 ms internal silence does not end, and
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T4.1.1 | Implement `should_end_turn` from settings | `pipeline/stages/endpoint.py` | T3.1.2 | 4 | forward | `tests/test_endpoint_policy.py` covers empty text, digit patience before a high `p_complete`, hard ceiling, and the 800 ms default |
-| T4.1.2 | Read `expected_slot` from the session | `pipeline/session.py` | T4.1.1 | 2 | forward | Default slot is `none`. A setter used by tests changes the policy result |
-| T4.1.3 | Emit `TURN_END` once per utterance | `pipeline/stages/endpoint.py` | T4.1.2 | 3 | forward | Two evaluations after the first true do not emit a second `TURN_END` until the next speech start |
+| T4.1.1 | Implement `should_end_turn` from settings | `pipeline/stages/endpoint.py` | T3.1.2 | 4 | landed | `tests/test_endpoint_policy.py` covers empty text, digit patience before a high `p_complete`, hard ceiling, and the 800 ms default |
+| T4.1.2 | Read `expected_slot` from the session | `pipeline/session.py` | T4.1.1 | 2 | landed | Default slot is `none`. A setter used by tests changes the policy result |
+| T4.1.3 | Emit `TURN_END` once per utterance | `pipeline/stages/endpoint.py` | T4.1.2 | 3 | landed | Two evaluations after the first true do not emit a second `TURN_END` until the next speech start |
 
 Implementation notes. The hard ceiling is after the digit check so a slow phone number is not cut at 1200 ms either, until `endpoint_digit_hard_ms` (2000). That second ceiling exists so a caller who went silent forever still ends. It is a setting. The first version of this function in the design notes put the 1200 ms return before the digit check. That bug is the first test in the file.
 
@@ -84,10 +84,10 @@ Demo-able outcome: `docs/results/phase4.md` has a latency row from the harness a
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T4.2.1 | Build truncation pairs from fixture sentences | `training/turn/build_truncation.py` | T3.2.3 | 4 | forward | Each complete sentence yields one positive and at least one prefix labeled incomplete. Output JSONL validates |
-| T4.2.2 | Train a small encoder | `training/turn/train.py` | T4.2.1 | 8 | forward | Held-out accuracy is written to `docs/results/phase4.md` from the script. Hyperparameters in the script header are STARTING POINT: learning rate 2e-5, 3 epochs, batch 32, max length 64 |
-| T4.2.3 | Export ONNX INT8 and load through the ONNX pool | `models/onnx_pool.py`, `training/turn/export.py` | T4.2.2 | 3 | forward | The pool times out at `turn_timeout_ms` default 20 and returns an error the endpointer treats as `p_complete=0` |
-| T4.2.4 | Measure CPU latency | `evals/bench/turn_latency.py` | T4.2.3 | 2 | forward | p50 under 10 ms TARGET or a row `budget_missed` with the measured p50. No hand-typed 10 ms |
+| T4.2.1 | Build truncation pairs from fixture sentences | `training/turn/build_truncation.py` | T3.2.3 | 4 | landed | Each complete sentence yields one positive and at least one prefix labeled incomplete. Output JSONL validates |
+| T4.2.2 | Train a small encoder | `training/turn/train.py` | T4.2.1 | 8 | landed | Held-out accuracy is written to `docs/results/phase4.md` from the script. Hyperparameters in the script header are STARTING POINT: learning rate 2e-5, 3 epochs, batch 32, max length 64 |
+| T4.2.3 | Export ONNX INT8 and load through the ONNX pool | `models/onnx_pool.py`, `training/turn/export.py` | T4.2.2 | 3 | landed | The pool times out at `turn_timeout_ms` default 20 and returns an error the endpointer treats as `p_complete=0` |
+| T4.2.4 | Measure CPU latency | `evals/bench/turn_latency.py` | T4.2.3 | 2 | landed | p50 under 10 ms TARGET or a row `budget_missed` with the measured p50. No hand-typed 10 ms |
 
 Implementation notes. Training data is public sentences plus the synthetic caller lines from phase 5 if those exist. Phase 4 does not block on phase 5. The truncation script can run on a 2,000-line local text file checked into `training/turn/fixtures.txt` with a license header. The feature is the text plus a special token for `expected_slot`. "Wednesday" is a positive when the slot is `date` and a negative when the slot is `none` and the sentence was cut from a longer booking request. That contrast is the reason the slot id is an input. If the latency budget is missed, ADR-007 records silence-only as the default and keeps the model behind a flag `turn_model_enabled` default false.
 
@@ -104,10 +104,10 @@ Demo-able outcome: a test plays 10 frames, acks 4, interrupts, and the recorded 
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T4.3.1 | Barge-in gates | `pipeline/stages/barge.py` | T4.1.2, T2.2.2 | 4 | forward | `tests/test_barge_policy.py` requires 250 ms of speech. 100 ms does not fire. AEC false does not fire |
-| T4.3.2 | State-dependent backchannel list | `nlp/backchannel.py` | T4.3.1 | 3 | forward | "okay" is a backchannel when the slot is `none` and is not when the slot is `confirm` |
-| T4.3.3 | Map acked frame index to a text prefix | `server/playback.py` | T1.3.5, T4.3.1 | 4 | forward | `tests/test_playback_prefix.py` with a known frame-to-character table returns the prefix for the acked frame, not the full string |
-| T4.3.4 | On barge-in, store the prefix and cancel speaking tasks | `pipeline/stages/barge.py` | T4.3.2, T4.3.3 | 3 | forward | `tests/test_barge_in_policy.py` asserts `session.played_text` and that a tracked TTS task raises `CancelledError` |
+| T4.3.1 | Barge-in gates | `pipeline/stages/barge.py` | T4.1.2, T2.2.2 | 4 | landed | `tests/test_barge_policy.py` requires 250 ms of speech. 100 ms does not fire. AEC false does not fire |
+| T4.3.2 | State-dependent backchannel list | `nlp/backchannel.py` | T4.3.1 | 3 | landed | "okay" is a backchannel when the slot is `none` and is not when the slot is `confirm` |
+| T4.3.3 | Map acked frame index to a text prefix | `server/playback.py` | T1.3.5, T4.3.1 | 4 | landed | `tests/test_playback_prefix.py` with a known frame-to-character table returns the prefix for the acked frame, not the full string |
+| T4.3.4 | On barge-in, store the prefix and cancel speaking tasks | `pipeline/stages/barge.py` | T4.3.2, T4.3.3 | 3 | landed | `tests/test_barge_in_policy.py` asserts `session.played_text` and that a tracked TTS task raises `CancelledError` |
 
 Implementation notes. Frame-to-character alignment in this phase is linear over the PCM length of the chunk that the TTS stage will later tag. Until TTS exists, the test injects the map. Phase 7 must call `PlaybackCursor.note_chunk(start_frame, end_frame, text)`. A missing map yields an empty `played_text` and a counter `turnwise_playback_unmap_total`, which fails closed: the FSM treats the confirmation as unheard and repeats it.
 
@@ -126,9 +126,9 @@ Demo-able outcome: a synthetic test prints the latency into `docs/results/phase4
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T4.4.1 | Synthetic clock from `barge_in` to last outbound write | `evals/turn/latency.py` | T4.3.4 | 3 | forward | The test fails if the measured latency on the stub audio sender exceeds 100 ms. The stub sender is in-process, so a miss means the cancellation path itself is slow, not the sound card |
-| T4.4.2 | Counters for early cutoff, response gap, false barge-in, missed barge-in | `pipeline/metrics.py` | T4.4.1 | 2 | forward | Counters exist and the definitions in appendix E match the increment sites |
-| T4.4.3 | Scripted false and missed cases | `tests/test_cancel_latency_synthetic.py` | T4.4.2 | 3 | forward | A backchannel does not increment false barge-in. A 300 ms speech burst with a non-backchannel partial does increment a hit. A burst the policy ignores increments missed only when the fixture is labeled `should_barge` |
+| T4.4.1 | Synthetic clock from `barge_in` to last outbound write | `evals/turn/latency.py` | T4.3.4 | 3 | landed | The test fails if the measured latency on the stub audio sender exceeds 100 ms. The stub sender is in-process, so a miss means the cancellation path itself is slow, not the sound card |
+| T4.4.2 | Counters for early cutoff, response gap, false barge-in, missed barge-in | `pipeline/metrics.py` | T4.4.1 | 2 | landed | Counters exist and the definitions in appendix E match the increment sites |
+| T4.4.3 | Scripted false and missed cases | `tests/test_cancel_latency_synthetic.py` | T4.4.2 | 3 | landed | A backchannel does not increment false barge-in. A 300 ms speech burst with a non-backchannel partial does increment a hit. A burst the policy ignores increments missed only when the fixture is labeled `should_barge` |
 
 Implementation notes. False barge-in and missed barge-in need a label. In unit tests the label is on the fixture. In the eval harness the label comes from the scenario's `barge_in: true` plus the time range. Do not infer the label from whether the model fired. Response gap is `first_audio_frame_ts - turn_end_ts` using `time.monotonic`. It is not TTFA until the client ack exists. Both are recorded. TTFA uses the ack. Response gap uses the server write. The SLO uses TTFA.
 
@@ -170,13 +170,13 @@ ADR-007 if the classifier misses the budget. Otherwise a short note in the resul
 
 ## 4.9 Exit criteria and phase gate
 
-- [ ] Digit patience beats high `p_complete` in a test.
-- [ ] One `TURN_END` per utterance.
-- [ ] Backchannel does not increment barge-in.
-- [ ] "okay" on `confirm` is not a backchannel.
-- [ ] Played prefix follows the acked frame.
-- [ ] Synthetic cancel latency is in the results file.
-- [ ] Classifier latency is in the results file or marked `budget_missed` with ADR-007.
+- [x] Digit patience beats high `p_complete` in a test.
+- [x] One `TURN_END` per utterance.
+- [x] Backchannel does not increment barge-in.
+- [x] "okay" on `confirm` is not a backchannel.
+- [x] Played prefix follows the acked frame.
+- [x] Synthetic cancel latency is in the results file.
+- [x] Classifier latency is in the results file or marked `budget_missed` with ADR-007.
 
 ## 4.10 Portfolio artifacts
 

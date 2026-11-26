@@ -62,6 +62,18 @@ class StageMetrics:
     itn_seconds: Histogram
     temporal_unresolved: Counter
     temporal_seconds: Histogram
+    endpoint_decisions: Counter
+    endpoint_silence: Histogram
+    turn_model_seconds: Histogram
+    turn_model_timeouts: Counter
+    backchannel_ignored: Counter
+    playback_unmap: Counter
+    playback_ack_ahead: Counter
+    cancel_latency: Histogram
+    response_gap: Histogram
+    early_cutoff: Counter
+    false_barge_in: Counter
+    missed_barge_in: Counter
 
 
 def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
@@ -228,4 +240,74 @@ def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
             buckets=_STAGE_BUCKETS,
             registry=registry,
         ),
+        endpoint_decisions=Counter(
+            "turnwise_endpoint_decisions",
+            "Endpointer hold versus end decisions.",
+            labelnames=("result",),
+            registry=registry,
+        ),
+        endpoint_silence=Histogram(
+            "turnwise_endpoint_silence_ms",
+            "Silence at the moment of an endpointer decision, in milliseconds.",
+            buckets=(50.0, 100.0, 200.0, 500.0, 800.0, 1000.0, 1200.0, 2000.0, 5000.0),
+            registry=registry,
+        ),
+        turn_model_seconds=Histogram(
+            "turnwise_turn_model_seconds",
+            "Turn-completeness ONNX wall time including executor wait.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        turn_model_timeouts=Counter(
+            "turnwise_turn_model_timeouts",
+            "Turn-completeness inferences that exceeded turn_timeout_ms.",
+            registry=registry,
+        ),
+        backchannel_ignored=Counter(
+            "turnwise_backchannel_ignored",
+            "Barge-in candidates dropped as state-dependent backchannels.",
+            registry=registry,
+        ),
+        playback_unmap=Counter(
+            "turnwise_playback_unmap",
+            "Barge-in with no frame-to-text map; played_text is empty.",
+            registry=registry,
+        ),
+        playback_ack_ahead=Counter(
+            "turnwise_playback_ack_ahead",
+            "Play acks whose frame index is ahead of any sent chunk.",
+            registry=registry,
+        ),
+        cancel_latency=Histogram(
+            "turnwise_cancel_latency_seconds",
+            "Time from barge_in return to last outbound PCM write.",
+            buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+            registry=registry,
+        ),
+        response_gap=Histogram(
+            "turnwise_response_gap_seconds",
+            "TURN_END to first server outbound PCM write. Not TTFA.",
+            buckets=_TTFA_BUCKETS,
+            registry=registry,
+        ),
+        early_cutoff=Counter(
+            "turnwise_early_cutoff",
+            "TURN_END labeled as firing before the scenario's last token.",
+            registry=registry,
+        ),
+        false_barge_in=Counter(
+            "turnwise_false_barge_in",
+            "Cancels whose fixture label is not should_barge.",
+            registry=registry,
+        ),
+        missed_barge_in=Counter(
+            "turnwise_missed_barge_in",
+            "Labeled should_barge bursts the policy did not cancel.",
+            registry=registry,
+        ),
     )
+
+
+def observe_response_gap(metrics: StageMetrics, turn_end_ts: float, first_audio_ts: float) -> None:
+    """Record first outbound write minus TURN_END. Both clocks are monotonic."""
+    metrics.response_gap.observe(max(0.0, first_audio_ts - turn_end_ts))

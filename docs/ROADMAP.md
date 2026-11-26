@@ -41,7 +41,7 @@ Done. Measured and blocked rows: `docs/results/phase3.md`. ADR-006 leaves `asr_b
 - Backchannels are state-dependent. "Okay" during a yes/no question is a turn.
 - Barge-in requires sustained speech plus a non-backchannel partial, and it records the audio the client acked, not the text the planner generated.
 - Early-cutoff rate, response gap, false barge-in, and missed barge-in are emitted.
-- The week-6 slice is in: silence endpointing, deterministic slots, templates, SQLite book, ten scripted database checks.
+- The week-6 product slice (deterministic slots, templates, SQLite book) is Phase 6. Phase 4 lands turn-taking only.
 
 ## Phase 5 — NLU
 

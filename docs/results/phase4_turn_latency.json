@@ -1,0 +1,12 @@
+{
+  "name": "turn_complete",
+  "status": "ok",
+  "version": "from_scratch",
+  "reason": null,
+  "p50_ms": 0.14245000056689605,
+  "p95_ms": 4.257140003028326,
+  "extra": {
+    "target_ms": 10.0,
+    "budget": "met"
+  }
+}

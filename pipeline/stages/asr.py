@@ -75,6 +75,9 @@ class AsrHandler:
         self.partials = 0
         self.finals = 0
 
+    def set_forward(self, forward: Forward) -> None:
+        self._forward = forward
+
     @property
     def hotwords(self) -> tuple[str, ...]:
         return tuple(self._hotwords)

@@ -75,6 +75,22 @@ class Settings(BaseSettings):
     clinic_name: str = "Turnwise Clinic"
     doctor_roster_path: str = "data/doctors.txt"
     itn_timeout_s: float = 0.5
+    endpoint_digit_patience_ms: int = 1000
+    endpoint_digit_hard_ms: int = 2000
+    endpoint_hard_silence_ms: int = 1200
+    endpoint_high_p: float = 0.85
+    endpoint_high_silence_ms: int = 200
+    endpoint_mid_p: float = 0.5
+    endpoint_mid_silence_ms: int = 500
+    endpoint_default_silence_ms: int = 800
+    turn_model_enabled: bool = True
+    turn_timeout_ms: int = 20
+    turn_onnx_path: str = "models/weights/turn_complete.onnx"
+    turn_feature_dim: int = 256
+    turn_ngram: int = 3
+    barge_in_min_speech_ms: int = 250
+    backchannel_max_ms: float = 400.0
+    backchannel_phrases: str = "mm-hmm,mhm,uh-huh,yeah,ok,okay"
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -120,6 +136,16 @@ class Settings(BaseSettings):
         "audio_clip_peak",
         "asr_pool_slots",
         "asr_finish_timeout_ms",
+        "endpoint_digit_patience_ms",
+        "endpoint_digit_hard_ms",
+        "endpoint_hard_silence_ms",
+        "endpoint_high_silence_ms",
+        "endpoint_mid_silence_ms",
+        "endpoint_default_silence_ms",
+        "turn_timeout_ms",
+        "turn_feature_dim",
+        "turn_ngram",
+        "barge_in_min_speech_ms",
     )
     @classmethod
     def at_least_one(cls, value: int) -> int:
@@ -162,14 +188,19 @@ class Settings(BaseSettings):
             raise ValueError("timeouts must be > 0")
         return value
 
-    @field_validator("vad_speech_threshold", "audio_clip_fraction")
+    @field_validator(
+        "vad_speech_threshold",
+        "audio_clip_fraction",
+        "endpoint_high_p",
+        "endpoint_mid_p",
+    )
     @classmethod
     def unit_interval(cls, value: float) -> float:
         if not 0.0 <= value <= 1.0:
             raise ValueError("value must be in [0, 1]")
         return value
 
-    @field_validator("audio_silence_rms", "hotword_score")
+    @field_validator("audio_silence_rms", "hotword_score", "backchannel_max_ms")
     @classmethod
     def non_negative(cls, value: float) -> float:
         if value < 0:
@@ -234,6 +265,10 @@ class Settings(BaseSettings):
     @property
     def vad_preroll_frames(self) -> int:
         return max(1, self.vad_preroll_ms // self.ws_frame_ms)
+
+    @property
+    def backchannel_list(self) -> tuple[str, ...]:
+        return tuple(part.strip() for part in self.backchannel_phrases.split(",") if part.strip())
 
 
 @lru_cache(maxsize=1)

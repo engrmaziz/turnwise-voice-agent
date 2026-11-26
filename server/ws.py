@@ -15,15 +15,19 @@ from opentelemetry.trace import Tracer, get_tracer
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from models.asr_pool import AsrPool
+from models.onnx_pool import TurnScorer
 from models.vad_pool import VadEngine
 from pipeline.audio.clock import ClockError, FrameClock
 from pipeline.errors import StageBackpressureError
 from pipeline.event import EventKind
+from pipeline.fanout import fan_out
 from pipeline.metrics import StageMetrics
 from pipeline.session import Session, SessionStore
 from pipeline.stage import Stage, StageConfig
 from pipeline.stages.asr import AsrHandler
 from pipeline.stages.audio_in import AudioInHandler
+from pipeline.stages.barge import BargeHandler
+from pipeline.stages.endpoint import EndpointHandler
 from pipeline.stages.vad import VadHandler
 from server.config import Settings
 from server.playback import ClosedCallSnapshot, PlaybackCursor
@@ -52,6 +56,7 @@ class WsContainer(Protocol):
     closed_snapshots: list[ClosedCallSnapshot] | None
     vad_engine: VadEngine
     asr_pool: AsrPool | None
+    turn_scorer: TurnScorer | None
 
     @property
     def make_audio_handler(self) -> Callable[[], AudioInHandler]: ...
@@ -63,6 +68,8 @@ class LiveCall:
     audio_stage: Stage
     vad_stage: Stage
     asr_stage: Stage
+    endpoint_stage: Stage
+    barge_stage: Stage
     handler: AudioInHandler
     vad_handler: VadHandler
     asr_handler: AsrHandler
@@ -145,6 +152,10 @@ async def _on_hello(
     pool = container.asr_pool
     if pool is None:
         pool = AsrPool.stub(settings, container.metrics)
+    scorer = container.turn_scorer
+    if scorer is None:
+        scorer = TurnScorer.unavailable(timeout_ms=settings.turn_timeout_ms)
+    playback = PlaybackCursor()
     asr_handler = AsrHandler(
         session=session,
         settings=settings,
@@ -160,12 +171,44 @@ async def _on_hello(
         tracer=tracer,
         metrics=container.metrics,
     )
+    endpoint_handler = EndpointHandler(
+        session=session,
+        settings=settings,
+        metrics=container.metrics,
+        scorer=scorer,
+    )
+    endpoint_stage = Stage(
+        name="endpoint",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=endpoint_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
+    barge_handler = BargeHandler(
+        session=session,
+        settings=settings,
+        metrics=container.metrics,
+        playback=playback,
+    )
+    barge_stage = Stage(
+        name="barge",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=barge_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
+    asr_handler.set_forward(fan_out(endpoint_stage.emit, barge_stage.emit))
+    endpoint_handler.set_forward(fan_out(asr_stage.emit, barge_stage.emit))
     vad_handler = VadHandler(
         session=session,
         settings=settings,
         engine=container.vad_engine,
         metrics=container.metrics,
-        forward=asr_stage.emit,
+        forward=fan_out(asr_stage.emit, endpoint_stage.emit, barge_stage.emit),
     )
     vad_stage = Stage(
         name="vad",
@@ -197,6 +240,8 @@ async def _on_hello(
         metrics=container.metrics,
     )
     asr_stage.start()
+    endpoint_stage.start()
+    barge_stage.start()
     vad_stage.start()
     audio_stage.start()
     container.metrics.ws_frames.labels(direction="in").inc()
@@ -212,10 +257,12 @@ async def _on_hello(
         audio_stage=audio_stage,
         vad_stage=vad_stage,
         asr_stage=asr_stage,
+        endpoint_stage=endpoint_stage,
+        barge_stage=barge_stage,
         handler=handler,
         vad_handler=vad_handler,
         asr_handler=asr_handler,
-        playback=PlaybackCursor(),
+        playback=playback,
         clock=FrameClock(),
         pcm_bytes=parsed.hello.frame_samples * 2,
         src_hz=parsed.hello.sample_rate_hz,
@@ -245,7 +292,8 @@ async def _on_pcm(container: WsContainer, call: LiveCall | None, parsed: PcmMess
 def _on_ack(container: WsContainer, call: LiveCall | None, parsed: AckMessage) -> None:
     if call is None:
         raise ProtocolError("ack_before_hello")
-    call.playback.ack(parsed.frame_index)
+    if not call.playback.ack(parsed.frame_index):
+        container.metrics.playback_ack_ahead.inc()
     container.metrics.ws_frames.labels(direction="in").inc()
 
 
@@ -281,12 +329,18 @@ async def _maybe_headphones_prompt(websocket: WebSocket, settings: Settings) -> 
 async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
     if call is None:
         return
+    pending: BaseException | None = None
     try:
         await asyncio.wait_for(call.audio_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.vad_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.asr_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.endpoint_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.barge_stage.inbox.join(), timeout=2.0)
     except TimeoutError:
         _LOG.warning("ws_teardown_join_timeout", session_id=call.session.session_id)
+    except asyncio.CancelledError as exc:
+        pending = exc
+        _LOG.warning("ws_teardown_join_cancelled", session_id=call.session.session_id)
     snapshots = container.closed_snapshots
     if snapshots is not None:
         snapshots.append(
@@ -296,11 +350,22 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
                 acked_frame=call.playback.acked_frame,
             )
         )
-    await call.audio_stage.aclose()
-    await call.vad_stage.aclose()
-    await call.asr_stage.aclose()
+    for stage in (
+        call.audio_stage,
+        call.vad_stage,
+        call.asr_stage,
+        call.endpoint_stage,
+        call.barge_stage,
+    ):
+        try:
+            await stage.aclose()
+        except asyncio.CancelledError as exc:
+            pending = exc
+            _LOG.warning("ws_teardown_aclose_cancelled", stage=stage.name)
     container.sessions.close(call.session.session_id)
     _LOG.info("ws_session_close", session_id=call.session.session_id)
+    if pending is not None:
+        raise pending
 
 
 async def _close(websocket: WebSocket, code: int) -> None:

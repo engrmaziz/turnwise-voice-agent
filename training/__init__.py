@@ -1,4 +1,5 @@
 """Training jobs for the turn detector, distilled NLU, and paralinguistics.
 
-No training code is implemented in the foundation milestone.
+The turn-completeness linear trainer lives in ``training.turn``. NLU and
+paralinguistic jobs are not implemented yet.
 """
