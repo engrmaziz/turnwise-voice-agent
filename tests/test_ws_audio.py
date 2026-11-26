@@ -19,11 +19,12 @@ from tests.ws_helpers import SESSION_A, hello_bytes, pcm_message, tone_pcm
 
 
 def test_fifty_tone_frames_and_play_ack(settings: Settings) -> None:
-    app = create_app(settings)
-    with TestClient(app) as client, client.websocket_connect(settings.ws_path) as ws:
+    roomy = settings.model_copy(update={"stage_queue_maxsize": 64, "stage_put_timeout_s": 2.0})
+    app = create_app(roomy)
+    with TestClient(app) as client, client.websocket_connect(roomy.ws_path) as ws:
         ws.send_bytes(hello_bytes())
         for index in range(50):
-            ws.send_bytes(pcm_message(index, settings))
+            ws.send_bytes(pcm_message(index, roomy))
         ws.send_bytes(encode_ack(4))
         ws.send_bytes(encode_close())
     snapshot = app.container.closed_snapshots

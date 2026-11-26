@@ -1,12 +1,5 @@
-"""LocalAgreement-2: the prefix two consecutive hypotheses share."""
+"""LocalAgreement-2: re-export of the NLP implementation used on the call path."""
 
+from nlp.local_agreement import local_agreement_2
 
-def local_agreement_2(first: str, second: str) -> str:
-    """Word-wise longest common prefix. Empty if the first words differ."""
-    left = first.split()
-    right = second.split()
-    shared = 0
-    limit = min(len(left), len(right))
-    while shared < limit and left[shared] == right[shared]:
-        shared += 1
-    return " ".join(left[:shared])
+__all__ = ["local_agreement_2"]

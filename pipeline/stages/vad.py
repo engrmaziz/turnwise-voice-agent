@@ -11,7 +11,7 @@ from opentelemetry.trace import get_current_span
 from models.vad_pool import VadEngine, VadUnavailableError
 from pipeline.audio.preroll import Preroll
 from pipeline.audio.quality import QualityWindow, rms_full_scale
-from pipeline.audio.vad_gate import VadGateConfig, VadTracker, vad_decision
+from pipeline.audio.vad_gate import VadGateConfig, VadMode, VadTracker, vad_decision
 from pipeline.event import Event, EventKind
 from pipeline.metrics import StageMetrics
 from pipeline.session import AudioQuality, Session
@@ -109,8 +109,19 @@ class VadHandler:
             self._metrics.vad_hang.inc()
             self._preroll.reset()
             _LOG.info("vad_hang", session_id=self._session.session_id)
+            if self._forward is not None:
+                hang = self._session.create_event(
+                    EventKind.TURN_END,
+                    {"reason": "vad_hang"},
+                    frame_index=event.frame_index,
+                )
+                await self._forward(hang)
         if step.speech_started:
             await self._on_speech_start(event, pcm)
+        elif (
+            self._tracker.mode is VadMode.IN_SPEECH and not step.hang and self._forward is not None
+        ):
+            await self._forward(event)
         self._preroll.push(pcm)
 
     def _sync_generation(self) -> None:

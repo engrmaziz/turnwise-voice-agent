@@ -1,7 +1,7 @@
 [project]
 name = "turnwise"
 version = "0.1.0"
-description = "Local full-duplex streaming voice agent. This release is the event bus and audio front end."
+description = "Local full-duplex streaming voice agent. This release is the event bus, audio front end, and stub ASR."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",
@@ -15,6 +15,7 @@ dependencies = [
   "uvicorn>=0.32.0",
   "websockets>=14.0",
   "onnxruntime>=1.20.0",
+  "tzdata>=2024.1",
 ]
 
 [dependency-groups]
@@ -94,6 +95,13 @@ packages = [
 
 [[tool.mypy.overrides]]
 module = "onnxruntime"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+  "nemo_text_processing",
+  "nemo_text_processing.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

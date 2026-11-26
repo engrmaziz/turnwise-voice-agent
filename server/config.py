@@ -1,6 +1,7 @@
 """Typed process settings. Thresholds and endpoints live here, not in call sites."""
 
 from functools import lru_cache
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -65,6 +66,15 @@ class Settings(BaseSettings):
     audio_clip_fraction: float = 0.01
     audio_clip_peak: int = 32760
     headphones_pcm_path: str = "client/prompts/headphones.pcm"
+    asr_backend: str = ""
+    asr_pool_slots: int = 1
+    asr_finish_timeout_ms: int = 200
+    asr_stub_transcript: str = "book tuesday at two thirty"
+    hotword_score: float = 1.5
+    clinic_timezone: str = "America/New_York"
+    clinic_name: str = "Turnwise Clinic"
+    doctor_roster_path: str = "data/doctors.txt"
+    itn_timeout_s: float = 0.5
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -108,6 +118,8 @@ class Settings(BaseSettings):
         "vad_max_utterance_ms",
         "vad_timeout_ms",
         "audio_clip_peak",
+        "asr_pool_slots",
+        "asr_finish_timeout_ms",
     )
     @classmethod
     def at_least_one(cls, value: int) -> int:
@@ -142,6 +154,7 @@ class Settings(BaseSettings):
         "otel_export_timeout_s",
         "bench_timeout_s",
         "audio_silence_window_s",
+        "itn_timeout_s",
     )
     @classmethod
     def positive_timeout(cls, value: float) -> float:
@@ -156,12 +169,40 @@ class Settings(BaseSettings):
             raise ValueError("value must be in [0, 1]")
         return value
 
-    @field_validator("audio_silence_rms")
+    @field_validator("audio_silence_rms", "hotword_score")
     @classmethod
     def non_negative(cls, value: float) -> float:
         if value < 0:
-            raise ValueError("audio_silence_rms must be >= 0")
+            raise ValueError("value must be >= 0")
         return value
+
+    @field_validator("clinic_timezone")
+    @classmethod
+    def known_timezone(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("clinic_timezone must be non-empty")
+        try:
+            ZoneInfo(stripped)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("unknown timezone") from exc
+        return stripped
+
+    @field_validator("clinic_name", "doctor_roster_path", "asr_stub_transcript")
+    @classmethod
+    def named_non_empty(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("value must be non-empty")
+        return stripped
+
+    @field_validator("asr_backend")
+    @classmethod
+    def known_asr_backend(cls, value: str) -> str:
+        stripped = value.strip()
+        if stripped not in {"", "stub", "zipformer", "whisper_la2"}:
+            raise ValueError("asr_backend must be empty, stub, zipformer, or whisper_la2")
+        return stripped
 
     @field_validator("ws_allowed_sample_rates")
     @classmethod

@@ -14,6 +14,7 @@ from fastapi import WebSocket
 from opentelemetry.trace import Tracer, get_tracer
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
+from models.asr_pool import AsrPool
 from models.vad_pool import VadEngine
 from pipeline.audio.clock import ClockError, FrameClock
 from pipeline.errors import StageBackpressureError
@@ -21,6 +22,7 @@ from pipeline.event import EventKind
 from pipeline.metrics import StageMetrics
 from pipeline.session import Session, SessionStore
 from pipeline.stage import Stage, StageConfig
+from pipeline.stages.asr import AsrHandler
 from pipeline.stages.audio_in import AudioInHandler
 from pipeline.stages.vad import VadHandler
 from server.config import Settings
@@ -49,6 +51,7 @@ class WsContainer(Protocol):
     tracing: Tracing | None
     closed_snapshots: list[ClosedCallSnapshot] | None
     vad_engine: VadEngine
+    asr_pool: AsrPool | None
 
     @property
     def make_audio_handler(self) -> Callable[[], AudioInHandler]: ...
@@ -59,8 +62,10 @@ class LiveCall:
     session: Session
     audio_stage: Stage
     vad_stage: Stage
+    asr_stage: Stage
     handler: AudioInHandler
     vad_handler: VadHandler
+    asr_handler: AsrHandler
     playback: PlaybackCursor
     clock: FrameClock
     pcm_bytes: int
@@ -137,11 +142,30 @@ async def _on_hello(
         put_timeout_s=settings.stage_put_timeout_s,
     )
     tracer = _tracer(container)
+    pool = container.asr_pool
+    if pool is None:
+        pool = AsrPool.stub(settings, container.metrics)
+    asr_handler = AsrHandler(
+        session=session,
+        settings=settings,
+        engine=pool,
+        metrics=container.metrics,
+    )
+    asr_stage = Stage(
+        name="asr",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=asr_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
     vad_handler = VadHandler(
         session=session,
         settings=settings,
         engine=container.vad_engine,
         metrics=container.metrics,
+        forward=asr_stage.emit,
     )
     vad_stage = Stage(
         name="vad",
@@ -172,6 +196,7 @@ async def _on_hello(
         tracer=tracer,
         metrics=container.metrics,
     )
+    asr_stage.start()
     vad_stage.start()
     audio_stage.start()
     container.metrics.ws_frames.labels(direction="in").inc()
@@ -186,8 +211,10 @@ async def _on_hello(
         session=session,
         audio_stage=audio_stage,
         vad_stage=vad_stage,
+        asr_stage=asr_stage,
         handler=handler,
         vad_handler=vad_handler,
+        asr_handler=asr_handler,
         playback=PlaybackCursor(),
         clock=FrameClock(),
         pcm_bytes=parsed.hello.frame_samples * 2,
@@ -254,8 +281,12 @@ async def _maybe_headphones_prompt(websocket: WebSocket, settings: Settings) -> 
 async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
     if call is None:
         return
-    await call.audio_stage.inbox.join()
-    await call.vad_stage.inbox.join()
+    try:
+        await asyncio.wait_for(call.audio_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.vad_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.asr_stage.inbox.join(), timeout=2.0)
+    except TimeoutError:
+        _LOG.warning("ws_teardown_join_timeout", session_id=call.session.session_id)
     snapshots = container.closed_snapshots
     if snapshots is not None:
         snapshots.append(
@@ -267,6 +298,7 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
         )
     await call.audio_stage.aclose()
     await call.vad_stage.aclose()
+    await call.asr_stage.aclose()
     container.sessions.close(call.session.session_id)
     _LOG.info("ws_session_close", session_id=call.session.session_id)
 

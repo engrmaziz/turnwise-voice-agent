@@ -4,12 +4,14 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request, Response, WebSocket
 from fastapi.responses import FileResponse
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest
 from pydantic import BaseModel
 
+from models.asr_pool import AsrPool
 from models.vad_pool import VadEngine, VadPool
 from pipeline.metrics import StageMetrics, build_stage_metrics
 from pipeline.session import SessionStore
@@ -47,6 +49,7 @@ class AppContainer:
     closed_snapshots: list[ClosedCallSnapshot] | None = None
     make_audio_handler: Callable[[], AudioInHandler] = field(default=new_audio_handler)
     vad_engine: VadEngine = field(default_factory=unavailable_vad)
+    asr_pool: AsrPool | None = None
 
 
 class TurnwiseApp(FastAPI):
@@ -69,14 +72,19 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     registry = CollectorRegistry()
     metrics = build_stage_metrics(registry)
     vad_engine = _load_vad(resolved)
+    asr_pool = _load_asr(resolved, metrics)
     container = AppContainer(
         settings=resolved,
         registry=registry,
         metrics=metrics,
-        sessions=SessionStore(on_barge_in=lambda: metrics.barge_in.inc()),
+        sessions=SessionStore(
+            on_barge_in=lambda: metrics.barge_in.inc(),
+            timezone=ZoneInfo(resolved.clinic_timezone),
+        ),
         redactor=PiiRedactor(resolved),
         closed_snapshots=[],
         vad_engine=vad_engine,
+        asr_pool=asr_pool,
     )
 
     @asynccontextmanager
@@ -93,6 +101,9 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
             engine = container.vad_engine
             if engine is not None:
                 engine.close()
+            pool = container.asr_pool
+            if pool is not None:
+                pool.close()
 
     app = TurnwiseApp(container=container, lifespan=lifespan)
     client_dir = Path(__file__).resolve().parent.parent / "client"
@@ -125,6 +136,13 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         return Response(content=payload, media_type=CONTENT_TYPE_LATEST)
 
     return app
+
+
+def _load_asr(settings: Settings, metrics: StageMetrics) -> AsrPool:
+    backend = settings.asr_backend.strip()
+    if backend in {"", "stub"}:
+        return AsrPool.stub(settings, metrics)
+    return AsrPool.load_real(settings, metrics)
 
 
 def _load_vad(settings: Settings) -> VadEngine:

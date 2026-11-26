@@ -3,7 +3,9 @@
 import asyncio
 import time
 from collections.abc import Callable, Mapping
+from datetime import datetime
 from enum import StrEnum
+from zoneinfo import ZoneInfo
 
 from pipeline.errors import SessionNotFoundError
 from pipeline.event import Event, EventKind, JsonValue
@@ -34,16 +36,26 @@ class Session:
     __slots__ = (
         "_audio_quality",
         "_barge_in_enabled",
+        "_expected_vocab_id",
         "_generation",
+        "_now",
         "_on_barge_in",
         "_pcm",
         "_session_id",
         "_speaking",
+        "_timezone",
         "_turn_id",
         "_wire_pcm",
     )
 
-    def __init__(self, session_id: str, *, on_barge_in: Callable[[], None] | None = None) -> None:
+    def __init__(
+        self,
+        session_id: str,
+        *,
+        on_barge_in: Callable[[], None] | None = None,
+        now: datetime | None = None,
+        timezone: ZoneInfo | None = None,
+    ) -> None:
         if not session_id:
             raise ValueError("session_id must be non-empty")
         self._session_id = session_id
@@ -55,6 +67,14 @@ class Session:
         self._audio_quality = AudioQuality.OK
         self._pcm: dict[int, bytes] = {}
         self._wire_pcm: dict[int, bytes] = {}
+        self._timezone = timezone if timezone is not None else ZoneInfo("America/New_York")
+        if now is None:
+            self._now = datetime.now(self._timezone)
+        elif now.tzinfo is None:
+            raise ValueError("session.now must be timezone-aware")
+        else:
+            self._now = now
+        self._expected_vocab_id = "greet"
 
     @property
     def session_id(self) -> str:
@@ -98,6 +118,30 @@ class Session:
         if _QUALITY_RANK[quality] > _QUALITY_RANK[self._audio_quality]:
             self._audio_quality = quality
         return self._audio_quality
+
+    @property
+    def timezone(self) -> ZoneInfo:
+        return self._timezone
+
+    @property
+    def now(self) -> datetime:
+        return self._now
+
+    @now.setter
+    def now(self, value: datetime) -> None:
+        if value.tzinfo is None:
+            raise ValueError("session.now must be timezone-aware")
+        self._now = value
+
+    @property
+    def expected_vocab_id(self) -> str:
+        return self._expected_vocab_id
+
+    @expected_vocab_id.setter
+    def expected_vocab_id(self, value: str) -> None:
+        if not value.strip():
+            raise ValueError("expected_vocab_id must be non-empty")
+        self._expected_vocab_id = value.strip()
 
     def request_barge_in(self) -> bool:
         """Run ``barge_in`` only when the client reported AEC on."""
@@ -168,16 +212,22 @@ class Session:
 class SessionStore:
     """Sessions owned by one process. Constructed by the app and passed in."""
 
-    __slots__ = ("_on_barge_in", "_sessions")
+    __slots__ = ("_on_barge_in", "_sessions", "_timezone")
 
-    def __init__(self, *, on_barge_in: Callable[[], None] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        on_barge_in: Callable[[], None] | None = None,
+        timezone: ZoneInfo | None = None,
+    ) -> None:
         self._sessions: dict[str, Session] = {}
         self._on_barge_in = on_barge_in
+        self._timezone = timezone
 
     def open(self, session_id: str) -> Session:
         if session_id in self._sessions:
             raise ValueError(f"session already open: {session_id}")
-        session = Session(session_id, on_barge_in=self._on_barge_in)
+        session = Session(session_id, on_barge_in=self._on_barge_in, timezone=self._timezone)
         self._sessions[session_id] = session
         return session
 

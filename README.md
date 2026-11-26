@@ -4,7 +4,7 @@ A fully local, streaming voice agent where deterministic dialogue control owns c
 
 Clinic receptionist: book, reschedule, and cancel appointments, answer FAQs, escalate urgent symptoms, hand off to a human. $0 to run after the hardware you already own. No hosted speech or model API on the default path.
 
-**This checkout is Phase 0 through Phase 2.** The event bus, PCM16 WebSocket, one resample at ingress, Silero VAD, and the AEC barge-in gate are in. There is no recognizer, dialogue machine, or TTS yet. `GET /health` and `GET /metrics` work. Product SLOs are TARGETS and unmet.
+**This checkout is Phase 0 through Phase 3.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, and clinic-clock date resolution are in. There is no dialogue machine or TTS yet. Real ASR weights are not pinned (ADR-006 blocked). Product SLOs are TARGETS and unmet.
 
 ## Scope
 
@@ -28,7 +28,7 @@ HIPAA certification or a compliance claim. Server-side acoustic echo cancellatio
 
 ## SLO targets (unmet)
 
-Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number below has been measured on a call. Measured latencies so far: in-process stage hop, resample p50, and Silero VAD p50 (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/results/phase2.md`](docs/results/phase2.md)).
+Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number below has been measured on a call. Measured latencies so far: in-process stage hop, resample p50, Silero VAD p50, ITN p50, and temporal p50 (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/results/phase2.md`](docs/results/phase2.md), [`docs/results/phase3.md`](docs/results/phase3.md)).
 
 | Metric | Target |
 |---|---|
@@ -88,6 +88,11 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M2.2 AEC flag gates barge-in | done (speaker row not run; see `docs/results/phase2.md`) |
 | M2.3 Silero VAD, hysteresis, pre-roll | done |
 | M2.4 silence / clip quality | done |
-| Phases 3–10 | not started |
+| M3.1 stub ASR pool, partials and finals | done |
+| M3.2 Zipformer vs Whisper+LA-2 | done (both backends blocked; see ADR-006) |
+| M3.3 hotwords + entity WER | done (entity WER blocked; TTS missing) |
+| M3.4 ITN, spoken form kept | done (NeMo missing; rule fallback) |
+| M3.5 relative dates + slot confidence | done |
+| Phases 4–10 | not started |
 
 Roadmap with acceptance lines: [`docs/ROADMAP.md`](docs/ROADMAP.md).

@@ -54,6 +54,14 @@ class StageMetrics:
     preroll_underrun: Counter
     audio_dead: Counter
     audio_clipped: Counter
+    asr_finalize: Histogram
+    asr_dropped_generation: Counter
+    asr_stable_lag: Histogram
+    hotword_updates: Counter
+    itn_errors: Counter
+    itn_seconds: Histogram
+    temporal_unresolved: Counter
+    temporal_seconds: Histogram
 
 
 def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
@@ -174,6 +182,50 @@ def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
         audio_clipped=Counter(
             "turnwise_audio_clipped",
             "Sessions flagged for clipping.",
+            registry=registry,
+        ),
+        asr_finalize=Histogram(
+            "turnwise_asr_finalize_seconds",
+            "Time to finish one utterance decode including executor wait.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        asr_dropped_generation=Counter(
+            "turnwise_asr_dropped_generation",
+            "ASR hypotheses dropped because session generation moved.",
+            registry=registry,
+        ),
+        asr_stable_lag=Histogram(
+            "turnwise_asr_stable_lag_seconds",
+            "Delay from audio event to a newly stable prefix.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        hotword_updates=Counter(
+            "turnwise_hotword_updates",
+            "Hotword list rebuilds after expected_vocab_id changed.",
+            registry=registry,
+        ),
+        itn_errors=Counter(
+            "turnwise_itn_errors",
+            "ITN timeouts and exceptions that kept spoken form.",
+            registry=registry,
+        ),
+        itn_seconds=Histogram(
+            "turnwise_itn_seconds",
+            "ITN wall time including executor wait.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        temporal_unresolved=Counter(
+            "turnwise_temporal_unresolved",
+            "Finals whose relative date produced no instant.",
+            registry=registry,
+        ),
+        temporal_seconds=Histogram(
+            "turnwise_temporal_seconds",
+            "Relative-date resolver wall time.",
+            buckets=_STAGE_BUCKETS,
             registry=registry,
         ),
     )

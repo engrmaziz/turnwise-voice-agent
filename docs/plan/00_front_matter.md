@@ -2,7 +2,7 @@
 
 This file is the program contract for the ten phases in `docs/plan/01_phase_foundation.md` through `docs/plan/10_phase_hardening_launch.md`. Catalogs, formulas, and the master task index live in `docs/plan/11_appendices.md`. Binding constraints already in the repo are `.cursor/rules/turnwise.mdc`, `docs/ARCHITECTURE.md`, `docs/SLOs.md`, and ADR-001, ADR-002, and ADR-003. Where this plan names a file that already exists, the task is marked `landed` and the acceptance criterion is the test that already passes. Where it names a file that does not exist, the task is `forward`.
 
-No latency or accuracy figure in this plan is a measurement unless it cites a test that has already been run. Measured figures: in-process stage hop in `docs/ARCHITECTURE.md` (three runs of `tests/test_stage_overhead.py` on Python 3.11.9, Windows 10.0.26300, medians 0.0825 ms, 0.0806 ms, and 0.0734 ms); resample p50 0.1446 ms and Silero VAD p50 0.5195 ms in `docs/results/phase2.md`. Every product SLO is a TARGET and is unmet.
+No latency or accuracy figure in this plan is a measurement unless it cites a test that has already been run. Measured figures: in-process stage hop in `docs/ARCHITECTURE.md` (three runs of `tests/test_stage_overhead.py` on Python 3.11.9, Windows 10.0.26300, medians 0.0825 ms, 0.0806 ms, and 0.0734 ms); resample p50 0.1446 ms and Silero VAD p50 0.5195 ms in `docs/results/phase2.md`; ITN p50 0.0459 ms and temporal p50 0.0078 ms in `docs/results/phase3.md`. Every product SLO is a TARGET and is unmet.
 
 ## Executive summary
 

@@ -9,7 +9,7 @@ JsonValue = str | int | float | bool | None
 
 
 class EventKind(StrEnum):
-    """Coarse event types the bus routes. Voice stages are not implemented yet."""
+    """Coarse event types the bus routes."""
 
     AUDIO = "audio"
     PARTIAL = "partial"

@@ -1,0 +1,58 @@
+[
+  {
+    "name": "asr.compare.zipformer.finalize",
+    "status": "blocked",
+    "version": null,
+    "reason": "weights_unpinned",
+    "p50_ms": null,
+    "p95_ms": null,
+    "extra": {
+      "fixtures": 20,
+      "stabilization_delay_ms_p50": null,
+      "stabilization_delay_ms_p95": null,
+      "delay_basis": "utterance_end"
+    }
+  },
+  {
+    "name": "asr.compare.zipformer.stabilization",
+    "status": "blocked",
+    "version": null,
+    "reason": "weights_unpinned",
+    "p50_ms": null,
+    "p95_ms": null,
+    "extra": {
+      "fixtures": 20,
+      "stabilization_delay_ms_p50": null,
+      "stabilization_delay_ms_p95": null,
+      "delay_basis": "utterance_end"
+    }
+  },
+  {
+    "name": "asr.compare.whisper_la2.finalize",
+    "status": "blocked",
+    "version": null,
+    "reason": "weights_unpinned",
+    "p50_ms": null,
+    "p95_ms": null,
+    "extra": {
+      "fixtures": 20,
+      "stabilization_delay_ms_p50": null,
+      "stabilization_delay_ms_p95": null,
+      "delay_basis": "utterance_end"
+    }
+  },
+  {
+    "name": "asr.compare.whisper_la2.stabilization",
+    "status": "blocked",
+    "version": null,
+    "reason": "weights_unpinned",
+    "p50_ms": null,
+    "p95_ms": null,
+    "extra": {
+      "fixtures": 20,
+      "stabilization_delay_ms_p50": null,
+      "stabilization_delay_ms_p95": null,
+      "delay_basis": "utterance_end"
+    }
+  }
+]

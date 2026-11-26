@@ -1,5 +1,4 @@
-"""Spoken-form NLP: ITN, temporal grounding, phonetic match, disfluency.
+"""Spoken-form NLP: ITN, temporal grounding, hotwords, LocalAgreement-2.
 
-No normalizer is implemented in the foundation milestone. Date resolution stays
-deterministic when it is built; the LLM does not do date arithmetic.
+Date resolution is deterministic. The LLM does not do date arithmetic.
 """

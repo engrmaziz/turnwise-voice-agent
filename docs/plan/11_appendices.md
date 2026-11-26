@@ -436,9 +436,9 @@ T1.1.1 3 landed none; T1.1.2 3 landed T1.1.1; T1.1.3 3 landed T1.1.2; T1.1.4 4 l
 
 T2.1.1 4 landed T1.3.3; T2.1.2 2 landed T2.1.1; T2.1.3 3 landed T2.1.2; T2.2.1 3 landed T1.3.4; T2.2.2 2 landed T2.2.1; T2.2.3 2 landed T2.2.2; T2.3.1 6 landed T1.4.1; T2.3.2 4 landed T2.3.1; T2.3.3 3 landed T2.1.2; T2.3.4 4 landed T2.3.2 T2.3.3; T2.4.1 3 landed T2.1.1; T2.4.2 2 landed T2.4.1; T2.4.3 2 landed T2.4.2.
 
-### Phase 3 — 56 h
+### Phase 3 — 56 h (56 landed)
 
-T3.1.1 6 T2.3.1; T3.1.2 5 T3.1.1; T3.1.3 3 T3.1.1; T3.2.1 5 T3.1.2; T3.2.2 5 T3.2.1 T1.4.2; T3.2.3 3 T3.2.2; T3.3.1 3 T3.1.2; T3.3.2 4 T3.3.1 T3.2.3; T3.3.3 3 T3.3.2; T3.4.1 5 T3.1.2; T3.4.2 2 T3.4.1; T3.4.3 3 T3.4.1; T3.5.1 4 T3.4.2; T3.5.2 3 T3.1.2; T3.5.3 2 T3.5.1 T3.5.2.
+T3.1.1 6 landed T2.3.1; T3.1.2 5 landed T3.1.1; T3.1.3 3 landed T3.1.1; T3.2.1 5 landed T3.1.2; T3.2.2 5 landed T3.2.1 T1.4.2; T3.2.3 3 landed T3.2.2; T3.3.1 3 landed T3.1.2; T3.3.2 4 landed T3.3.1 T3.2.3; T3.3.3 3 landed T3.3.2; T3.4.1 5 landed T3.1.2; T3.4.2 2 landed T3.4.1; T3.4.3 3 landed T3.4.1; T3.5.1 4 landed T3.4.2; T3.5.2 3 landed T3.1.2; T3.5.3 2 landed T3.5.1 T3.5.2.
 
 ### Phase 4 — 48 h
 

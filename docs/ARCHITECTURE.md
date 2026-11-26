@@ -1,8 +1,8 @@
 # Architecture
 
-Turnwise is a local, full-duplex clinic receptionist. This milestone is the event bus plus the audio front end: typed events, a per-call generation clock, bounded queues, telemetry, a PCM16 WebSocket, one resample at ingress, a Silero VAD worker pool, and an AEC flag that gates barge-in. No recognizer, dialogue machine, tool, ASR, LLM, or TTS worker exists yet. `python -m evals.bench` times those workers off the call path and writes `docs/benchmarks.md` from JSON.
+Turnwise is a local, full-duplex clinic receptionist. This milestone is the event bus, the audio front end, and spoken-form ASR: typed events, bounded queues, a PCM16 WebSocket, one resample at ingress, Silero VAD, a stub ASR pool that emits `PARTIAL`/`FINAL`, rule-based ITN, and a clinic-clock date resolver. No dialogue machine, tool, LLM, or TTS worker exists yet. Real Zipformer and Whisper rows are `blocked` (ADR-006). `python -m evals.bench` times those workers off the call path and writes `docs/benchmarks.md` from JSON.
 
-Design constraints are ADR-001 (the FSM owns state), ADR-002 (bounded queues and generation cancellation), ADR-003 (model choice waits on measured rows), and ADR-004 (hardware tier, blocked until those rows exist).
+Design constraints are ADR-001 (the FSM owns state), ADR-002 (bounded queues and generation cancellation), ADR-003 (model choice waits on measured rows), ADR-004 (hardware tier, blocked), and ADR-006 (ASR backend, blocked until finalize p50 exists).
 
 ## Pipeline
 
@@ -27,11 +27,11 @@ flowchart LR
 
 `ResponsePlanner` emits either a template or a grammar-constrained model proposal. The model does not write dialogue state. `ITN` produces written forms; a separate deterministic resolver, using the session clock and timezone, turns "next Tuesday" into an instant. Those two steps are not the same component.
 
-On the server, `audio_in` resamples then forwards to `vad`. Browser AEC is not a server stage. Downstream boxes in the diagram are not built.
+On the server, `audio_in` resamples then forwards to `vad`, which forwards in-speech frames to `asr`. Browser AEC is not a server stage. ITN and temporal resolution run inside the ASR stage on finals only. NLU, FSM, tools, and TTS are not built.
 
 AEC runs in the browser (`echoCancellation` on the microphone). The server does not cancel echo. `Session.request_barge_in` is a no-op unless `session.barge_in_enabled` is true, and that flag is the hello `aec` boolean from `track.getSettings()`, not the constraint the client asked for. Barge-in on speakers without that client flag is unsupported until a server AEC exists.
 
-Shared worker pools are process-wide, not one copy per call. The Silero VAD pool is built: one ONNX session, inference in a `ThreadPoolExecutor`, timeout `vad_timeout_ms` (30). ASR, TTS, and the language-model client are not. A VAD result carries the generation captured at submit time and is discarded if the session has moved on. Cancelling the session task does not stop a call already inside the worker. Pool batch wait stays at a few milliseconds. The session currently being talked over is served first on the ASR pool so barge-in is not stuck behind another call's decode.
+Shared worker pools are process-wide, not one copy per call. The Silero VAD pool is built: one ONNX session, inference in a `ThreadPoolExecutor`, timeout `vad_timeout_ms` (30). The ASR pool is built as a stub until ADR-006 names weights: `asr_backend` empty refuses `AsrPool.load_real`, the process uses the stub, finish timeout `asr_finish_timeout_ms` (200), speaking sessions dequeue first. TTS and the language-model client are not. A worker result carries the generation captured at submit time and is discarded if the session has moved on. Cancelling the session task does not stop a call already inside the worker.
 
 ## Event schema
 
@@ -121,6 +121,14 @@ Counters are created without a `_total` suffix. Prometheus adds it on the scrape
 | `turnwise_preroll_underrun_total` | Speech starts whose pre-roll was shorter than `vad_preroll_ms`. |
 | `turnwise_audio_dead_total` | Sessions closed after a silent microphone window. |
 | `turnwise_audio_clipped_total` | Sessions flagged for clipping. |
+| `turnwise_asr_finalize_seconds` | Time to finish one utterance decode. |
+| `turnwise_asr_dropped_generation_total` | ASR hypotheses dropped after barge-in. |
+| `turnwise_asr_stable_lag_seconds` | Delay from the audio event to a newly stable prefix. |
+| `turnwise_hotword_updates_total` | Hotword list rebuilds when `expected_vocab_id` changes. |
+| `turnwise_itn_errors_total` | ITN timeouts and exceptions that kept spoken form. |
+| `turnwise_itn_seconds` | ITN wall time including executor wait. |
+| `turnwise_temporal_unresolved_total` | Finals whose relative date produced no instant. |
+| `turnwise_temporal_seconds` | Relative-date resolver wall time. |
 
 Logs go through structlog. `session_id`, `turn_id`, and `generation` are bound for the handler. Configured PII field names are HMAC-SHA256'd. A log key named `payload` is replaced with `omitted`. If `TURNWISE_PII_HASH_KEY` is unset, the process generates a key and logs `pii_hash_key_unset` once; hashes will not join across restarts.
 
@@ -158,7 +166,9 @@ Three consecutive runs of `tests/test_stage_overhead.py` on Python 3.11.9, Windo
 
 Resample of one 20 ms 48 kHz frame to 16 kHz: p50 **0.1446 ms** (`docs/results/phase2.md`). Silero VAD inference p50 **0.5195 ms** after warmup on `silero_vad.onnx`. Both sit inside the 20 ms ingress and 10 ms VAD allocations.
 
-No time-to-first-audio sample has been recorded.
+ITN rule fallback p50 **0.0459 ms** and temporal `"next Tuesday"` p50 **0.0078 ms** (`docs/results/phase3.md`). Sum **0.0537 ms** inside the 10 ms ITN-plus-temporal allocation. NeMo did not import (`ModuleNotFoundError`).
+
+No time-to-first-audio sample has been recorded. Real ASR finalize p50 is blocked (ADR-006).
 
 ## Failure policy
 
@@ -169,8 +179,8 @@ Every external call gets a timeout from settings. Rows without a live stage are 
 | Silent or clipped mic | RMS gate over `audio_silence_window_s` | One `SESSION_END` (`audio_dead`); clip sets session quality |
 | Browser AEC unavailable | Flag on the client hello | Barge-in off; headphones prompt or `prompt_missing` |
 | VAD worker timeout | Two `vad_timeout_ms` failures, or missing ONNX | Energy gate; `turnwise_vad_fallback` |
-| ASR timeout or confidence collapse | Timeout, then a low-confidence streak | Offer a callback or a human |
-| ITN or date-resolver failure | Exception, or an unresolved relative date | Keep the spoken form and re-ask critical slots |
+| ASR timeout or confidence collapse | `asr_finish_timeout_ms`, or missing word scores | Empty spoken `asr_ok=0`; slot confidence 0.0 |
+| ITN or date-resolver failure | Exception, timeout, or unresolved relative | Keep spoken, `normalized_ok=0`; `temporal_unresolved` |
 | Turn-detector timeout | Timeout | Silence-only endpoint from config |
 | NLU timeout or reject | Timeout or confidence | Re-prompt; handoff after the configured attempt limit |
 | Illegal FSM proposal | Validator reject | Stay in the state and re-prompt |
@@ -200,11 +210,11 @@ Settings and defaults are in `server/config.py` and `.env.example`.
 
 ## What this milestone does not do
 
-- No ASR, NLU, FSM, tools, or TTS worker. Ingress and VAD are live; the recognizer is not.
+- No NLU, FSM, tools, or TTS worker. Ingress, VAD, and the ASR stub are live. Zipformer/Whisper weights are not pinned (ADR-006 blocked).
 - No model is pinned for ASR, LLM, or TTS. ADR-003 stays Proposed. ADR-004 is blocked until those rows are `ok`.
 - No session supervisor. A failed stage task stays failed until the owner closes it.
 - Playback acks and `frame_index` are on the event so later stages share a clock.
 - PII redaction covers configured log keys and any `payload` key. A span that later sets a raw name as an attribute would bypass it; stage code must keep using ids and `model` only. PCM must stay off the payload.
-- Native Windows does not pip-install NeMo text processing. That dependency is not in this milestone.
+- Native Windows does not pip-install NeMo text processing. The rule fallback covers clocks, digit runs, and month names. The import error class is in `docs/results/phase3.md`.
 - The hardware bench does not sit on the call path. A `blocked` or `not_present` cell is not a zero.
 - Server-side AEC is a non-goal. The speaker-versus-headphones row in `docs/results/phase2.md` is `not run`.

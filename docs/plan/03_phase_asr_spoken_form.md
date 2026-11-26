@@ -63,9 +63,9 @@ Demo-able outcome: a 2-second fixture produces at least one `PARTIAL` and exactl
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T3.1.1 | Pool protocol, timeout, generation drop | `models/asr_pool.py` | T2.3.1 | 6 | forward | `tests/test_asr_pool.py` drops a result stamped generation 0 after `barge_in` |
-| T3.1.2 | Stage emits `PARTIAL` and `FINAL` without ITN | `pipeline/stages/asr.py` | T3.1.1 | 5 | forward | `tests/test_asr_stage.py` with the stub: partial text is a prefix of the final spoken text |
-| T3.1.3 | Priority: the session that is in `speaking` is served first | `models/asr_pool.py` | T3.1.1 | 3 | forward | Two sessions queued, the speaking one completes first. Test uses the stub with a delay |
+| T3.1.1 | Pool protocol, timeout, generation drop | `models/asr_pool.py` | T2.3.1 | 6 | landed | `tests/test_asr_pool.py` drops a result stamped generation 0 after `barge_in` |
+| T3.1.2 | Stage emits `PARTIAL` and `FINAL` without ITN | `pipeline/stages/asr.py` | T3.1.1 | 5 | landed | `tests/test_asr_stage.py` with the stub: partial text is a prefix of the final spoken text |
+| T3.1.3 | Priority: the session that is in `speaking` is served first | `models/asr_pool.py` | T3.1.1 | 3 | landed | Two sessions queued, the speaking one completes first. Test uses the stub with a delay |
 
 Implementation notes. The stub recognizer sleeps and returns a fixed transcript so CI does not download weights. The real backend is selected by `asr_backend` and refuses to start if the setting is empty. Word times are milliseconds from the start of the pre-roll snapshot. Confidence is the recognizer's word score if it has one. If the chosen build has no word scores, T3.1.2 writes `confidence: null` as a missing float by omitting the word from aggregation and setting slot confidence to 0.0, which forces confirmation later. It does not invent 1.0.
 
@@ -82,9 +82,9 @@ Demo-able outcome: `docs/results/phase3.md` contains two rows from JSON, or one 
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T3.2.1 | LocalAgreement-2: commit the prefix two consecutive hypotheses share | `nlp/local_agreement.py` | T3.1.2 | 5 | forward | `tests/test_local_agreement.py`: "book tue" then "book tuesday at" commits "book " only after the second call agrees |
-| T3.2.2 | Run both backends on the same 20 fixtures | `evals/bench/asr_compare.py`, `docs/benchmarks.md` | T3.2.1, T1.4.2 | 5 | forward | JSON contains `stabilization_delay_ms` p50 and p95 per backend. The markdown is rendered from the JSON |
-| T3.2.3 | Write the choice | `docs/adr/ADR-006-asr-backend.md` | T3.2.2 | 3 | forward | ADR picks the backend whose finalize p50 is ≤ 100 ms TARGET. If neither is, it picks the lower one and marks the budget missed. It does not average them |
+| T3.2.1 | LocalAgreement-2: commit the prefix two consecutive hypotheses share | `nlp/local_agreement.py` | T3.1.2 | 5 | landed | `tests/test_local_agreement.py`: "book tue" then "book tuesday at" commits "book " only after the second call agrees |
+| T3.2.2 | Run both backends on the same 20 fixtures | `evals/bench/asr_compare.py`, `docs/benchmarks.md` | T3.2.1, T1.4.2 | 5 | landed | JSON contains `stabilization_delay_ms` p50 and p95 per backend. The markdown is rendered from the JSON |
+| T3.2.3 | Write the choice | `docs/adr/ADR-006-asr-backend.md` | T3.2.2 | 3 | landed (backend blocked) | ADR picks the backend whose finalize p50 is ≤ 100 ms TARGET. If neither is, it picks the lower one and marks the budget missed. It does not average them |
 
 Implementation notes. Stabilization delay is the time from the end of the spoken word in the fixture alignment to the first hypothesis where that word sits inside `stable_prefix`. Fixtures without alignments report delay only at utterance end, and the column says `utterance_end`. LocalAgreement on Whisper is not the hot path unless ADR-006 says the delay fits. A 3-second delay from the published Whisper streaming papers is a reason to reject it, but this plan does not copy that number into the results file as if it were measured here.
 
@@ -101,9 +101,9 @@ Demo-able outcome: the same noisy name fixture scores a lower entity error with 
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T3.3.1 | Build the hotword list from roster plus state id | `nlp/hotwords.py`, `data/doctors.txt` | T3.1.2 | 3 | forward | `tests/test_hotwords.py` returns doctor names for `doctor` and weekday names for `date`, and does not return the roster for `phone` |
-| T3.3.2 | Push the list into the recognizer when `expected_vocab_id` changes | `pipeline/stages/asr.py` | T3.3.1, T3.2.3 | 4 | forward | A stub records the list it was given. A change from `greet` to `doctor` changes the list |
-| T3.3.3 | Entity WER on a 30-name fixture, bias on and off | `evals/bench/entity_wer.py` | T3.3.2 | 3 | forward | `docs/results/phase3.md` gains two WER numbers from the JSON. If the backend has no hotword API, the on-row is `unsupported` |
+| T3.3.1 | Build the hotword list from roster plus state id | `nlp/hotwords.py`, `data/doctors.txt` | T3.1.2 | 3 | landed | `tests/test_hotwords.py` returns doctor names for `doctor` and weekday names for `date`, and does not return the roster for `phone` |
+| T3.3.2 | Push the list into the recognizer when `expected_vocab_id` changes | `pipeline/stages/asr.py` | T3.3.1, T3.2.3 | 4 | landed | A stub records the list it was given. A change from `greet` to `doctor` changes the list |
+| T3.3.3 | Entity WER on a 30-name fixture, bias on and off | `evals/bench/entity_wer.py` | T3.3.2 | 3 | landed (tts_blocked) | `docs/results/phase3.md` gains two WER numbers from the JSON. If the backend has no hotword API, the on-row is `unsupported` |
 
 Implementation notes. `hotword_score` 1.5 is a STARTING POINT from the sherpa example default, not a tuned value. T3.3.3 runs score 1.0 and 1.5 and 2.0 if the API accepts a score. The chosen score is the one with the lowest entity WER that does not increase overall WER by more than 1 point absolute. If the API has no score, the column says `unsupported` and the default build score is used. Doctor names in `data/doctors.txt` are the closed set. They are not learned from audio.
 
@@ -120,9 +120,9 @@ Demo-able outcome: "march third at two thirty" yields a normalized form that sti
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T3.4.1 | ITN wrapper with a timeout and a rule fallback | `nlp/itn.py` | T3.1.2 | 5 | forward | `tests/test_itn.py` on the rule fallback maps "two thirty" to a form containing "2:30". NeMo is used only if import succeeds |
-| T3.4.2 | Apply ITN to finals only | `pipeline/stages/asr.py` | T3.4.1 | 2 | forward | A `PARTIAL` event's payload has `spoken` and no `normalized` |
-| T3.4.3 | Failure keeps spoken text and sets `normalized_ok` false | `nlp/itn.py` | T3.4.1 | 3 | forward | A raised exception inside the wrapper becomes `normalized_ok=0` and does not drop the final |
+| T3.4.1 | ITN wrapper with a timeout and a rule fallback | `nlp/itn.py` | T3.1.2 | 5 | landed | `tests/test_itn.py` on the rule fallback maps "two thirty" to a form containing "2:30". NeMo is used only if import succeeds |
+| T3.4.2 | Apply ITN to finals only | `pipeline/stages/asr.py` | T3.4.1 | 2 | landed | A `PARTIAL` event's payload has `spoken` and no `normalized` |
+| T3.4.3 | Failure keeps spoken text and sets `normalized_ok` false | `nlp/itn.py` | T3.4.1 | 3 | landed | A raised exception inside the wrapper becomes `normalized_ok=0` and does not drop the final |
 
 Implementation notes. NeMo does not pip-install on native Windows because Pynini has no official wheel. T3.4.1 tries the import, records the exception class in the results file, and uses the rule fallback. The rule fallback covers clock times, digit sequences, and month names. It does not claim full WFST coverage. Relative phrases are left untouched for T3.5.1. Running ITN on partials is forbidden because partials rewrite and would churn the normalized string the UI might show. There is no UI in this phase. The event rule is still the rule.
 
@@ -139,9 +139,9 @@ Demo-able outcome: a table test across a DST boundary and a low-confidence span 
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T3.5.1 | Deterministic relative resolver | `nlp/temporal.py` | T3.4.2 | 4 | forward | `tests/test_relative_dates.py`: Tuesday 2026-03-03, "next Tuesday" is 2026-03-10. "day after tomorrow" from a DST spring-forward date is two midnights in `clinic_timezone`, not 48 hours of UTC |
-| T3.5.2 | Min word confidence over a span | `nlp/slot_confidence.py` | T3.1.2 | 3 | forward | `tests/test_slot_confidence.py` span covering 0.9 and 0.4 yields 0.4. Empty span yields 0.0 |
-| T3.5.3 | Attach instants and confidences on the final | `pipeline/stages/asr.py` | T3.5.1, T3.5.2 | 2 | forward | The final payload includes `instants` and `slot_conf` strings. The LLM client is not imported in this module. A grep test enforces that |
+| T3.5.1 | Deterministic relative resolver | `nlp/temporal.py` | T3.4.2 | 4 | landed | `tests/test_relative_dates.py`: Tuesday 2026-03-03, "next Tuesday" is 2026-03-10. "day after tomorrow" from a DST spring-forward date is two midnights in `clinic_timezone`, not 48 hours of UTC |
+| T3.5.2 | Min word confidence over a span | `nlp/slot_confidence.py` | T3.1.2 | 3 | landed | `tests/test_slot_confidence.py` span covering 0.9 and 0.4 yields 0.4. Empty span yields 0.0 |
+| T3.5.3 | Attach instants and confidences on the final | `pipeline/stages/asr.py` | T3.5.1, T3.5.2 | 2 | landed | The final payload includes `instants` and `slot_conf` strings. The LLM client is not imported in this module. A grep test enforces that |
 
 Implementation notes. The resolver handles: today, tomorrow, day after tomorrow, next WEEKDAY, this WEEKDAY, and bare WEEKDAY. Bare WEEKDAY means the next occurrence, which may be today if the name matches today and the phrase is not "next". Ambiguous phrases such as "Tuesday or Wednesday" produce two instants and set `ambiguous=1`. The FSM must not pick one. Month-day without a year uses the next future date in the clinic zone, and a date more than 180 days out sets `needs_confirm=1` because the year guess is the risky part.
 
@@ -187,13 +187,13 @@ ADR-006. Update `docs/ARCHITECTURE.md` to name the chosen backend after ADR-006,
 
 ## 3.9 Exit criteria and phase gate
 
-- [ ] Stub ASR tests pass on CI without weights.
-- [ ] ADR-006 exists.
-- [ ] Partials are not normalized.
-- [ ] Spoken form is preserved on finals.
-- [ ] DST unit test passes.
-- [ ] Entity ablation is a number pair or `blocked` or `unsupported`, never a blank cell.
-- [ ] No LLM import in the ASR stage.
+- [x] Stub ASR tests pass on CI without weights.
+- [x] ADR-006 exists.
+- [x] Partials are not normalized.
+- [x] Spoken form is preserved on finals.
+- [x] DST unit test passes.
+- [x] Entity ablation is a number pair or `blocked` or `unsupported`, never a blank cell.
+- [x] No LLM import in the ASR stage.
 
 ## 3.10 Portfolio artifacts
 
