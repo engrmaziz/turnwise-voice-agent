@@ -174,6 +174,7 @@ async def _on_hello(
         put_timeout_s=settings.stage_put_timeout_s,
     )
     tracer = _tracer(container)
+    session.bind_tracer(tracer)
     pool = container.asr_pool
     if pool is None:
         pool = AsrPool.stub(settings, container.metrics)
@@ -556,6 +557,7 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
         except asyncio.CancelledError as exc:
             pending = exc
             _LOG.warning("ws_teardown_aclose_cancelled", stage=stage.name)
+    call.session.turn_span.close(reason="session_end")
     container.sessions.close(call.session.session_id)
     _LOG.info("ws_session_close", session_id=call.session.session_id)
     if pending is not None:

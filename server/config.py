@@ -150,6 +150,14 @@ class Settings(BaseSettings):
     eval_matrix_n: int = 900
     eval_soft_judge: bool = False
     eval_text_inject: bool = False
+    llm_health_timeout_ms: int = 2000
+    asr_collapse_turns: int = 3
+    asr_collapse_conf: float = 0.3
+    audio_retain: bool = False
+    audio_retain_s: int = 0
+    audio_retain_dir: str = "data/retain"
+    load_n_max: int = 16
+    llm_max_batch: int = 1
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -224,6 +232,10 @@ class Settings(BaseSettings):
         "eval_realtime_n",
         "eval_smoke_n",
         "eval_matrix_n",
+        "llm_health_timeout_ms",
+        "asr_collapse_turns",
+        "load_n_max",
+        "llm_max_batch",
     )
     @classmethod
     def at_least_one(cls, value: int) -> int:
@@ -277,6 +289,7 @@ class Settings(BaseSettings):
         "confirm_explicit_below",
         "faq_min_score",
         "frustration_threshold",
+        "asr_collapse_conf",
         "fuse_w_audio",
         "fuse_w_text",
         "fuse_w_repair",
@@ -324,6 +337,7 @@ class Settings(BaseSettings):
         "tts_voice",
         "tts_abbrev",
         "tts_warmup_phrases",
+        "audio_retain_dir",
     )
     @classmethod
     def named_non_empty(cls, value: str) -> str:
@@ -347,6 +361,13 @@ class Settings(BaseSettings):
         if stripped not in {"", "stub", "piper", "kokoro"}:
             raise ValueError("tts_backend must be empty, stub, piper, or kokoro")
         return stripped
+
+    @field_validator("audio_retain_s")
+    @classmethod
+    def retain_s_non_negative(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("audio_retain_s must be >= 0")
+        return value
 
     @field_validator("eval_time_scale")
     @classmethod

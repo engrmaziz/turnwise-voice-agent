@@ -106,6 +106,9 @@ class StageMetrics:
     emotion_timeouts: Counter
     fusion_score: Histogram
     offer_human: Counter
+    task_outcome: Counter
+    degraded: Counter
+    llm_queue_wait: Histogram
 
 
 def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
@@ -508,6 +511,24 @@ def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
         offer_human=Counter(
             "turnwise_offer_human",
             "Sessions that latched a courtesy offer after two over-threshold turns.",
+            registry=registry,
+        ),
+        task_outcome=Counter(
+            "turnwise_task_outcome",
+            "FSM arrivals at a terminal state.",
+            labelnames=("state",),
+            registry=registry,
+        ),
+        degraded=Counter(
+            "turnwise_degraded",
+            "Degradation-ladder trips by rung.",
+            labelnames=("rung",),
+            registry=registry,
+        ),
+        llm_queue_wait=Histogram(
+            "turnwise_llm_queue_wait_seconds",
+            "Wait in the LLM client queue before the worker starts.",
+            buckets=_STAGE_BUCKETS,
             registry=registry,
         ),
     )

@@ -119,6 +119,95 @@
       ],
       "title": "Time to first content audio",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "sum by (state) (rate(turnwise_task_outcome_total[5m]))",
+          "legendFormat": "{{state}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Task outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "rate(turnwise_false_barge_in_total[5m])",
+          "legendFormat": "false barge-in",
+          "refId": "A"
+        }
+      ],
+      "title": "False barge-in",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "rate(turnwise_early_cutoff_total[5m])",
+          "legendFormat": "early cutoff",
+          "refId": "A"
+        }
+      ],
+      "title": "Early cutoff",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "rate(turnwise_tts_cache_hits_total[5m])",
+          "legendFormat": "hits",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(turnwise_tts_cache_misses_total[5m])",
+          "legendFormat": "misses",
+          "refId": "B"
+        }
+      ],
+      "title": "TTS cache",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "id": 12,
+      "targets": [
+        {
+          "expr": "sum by (rung) (turnwise_degraded_total)",
+          "legendFormat": "{{rung}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Degraded rungs",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 40 },
+      "id": 13,
+      "targets": [
+        {
+          "expr": "vector(0)",
+          "legendFormat": "no nvidia-smi on the event loop",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU (skip panel)",
+      "type": "stat"
     }
   ],
   "schemaVersion": 39,

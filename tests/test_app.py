@@ -14,7 +14,12 @@ def test_health_and_empty_ttfa_histogram(settings: Settings) -> None:
         assert "text/html" in home.headers["content-type"]
         health = client.get("/health")
         assert health.status_code == 200
-        assert health.json() == {"status": "ok", "service": "turnwise-test"}
+        body_json = health.json()
+        assert body_json["status"] == "ok"
+        assert body_json["service"] == "turnwise-test"
+        assert body_json["degraded_llm"] is True
+        assert body_json["degraded_tts"] is True
+        assert body_json["degraded_asr"] is True
         body = client.get("/metrics").text
     assert "turnwise_stage_latency_seconds" in body
     assert "turnwise_queue_depth" in body
@@ -57,6 +62,9 @@ def test_health_and_empty_ttfa_histogram(settings: Settings) -> None:
     assert "turnwise_emotion_timeouts_total" in body
     assert "turnwise_fusion_score" in body
     assert "turnwise_offer_human_total" in body
+    assert "turnwise_task_outcome_total" in body
+    assert "turnwise_degraded_total" in body
+    assert "turnwise_llm_queue_wait_seconds" in body
     assert "turnwise_ttfa_seconds_count 0.0" in body
     assert "turnwise_ttfa_content_seconds_count 0.0" in body
 

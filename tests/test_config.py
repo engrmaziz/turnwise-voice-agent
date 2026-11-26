@@ -73,6 +73,13 @@ def test_default_backchannel_list_excludes_yes() -> None:
     assert settings.eval_time_scale == 0.0
     assert settings.eval_matrix_n == 900
     assert settings.eval_smoke_n == 30
+    assert settings.llm_health_timeout_ms == 2000
+    assert settings.asr_collapse_turns == 3
+    assert settings.asr_collapse_conf == 0.3
+    assert settings.audio_retain is False
+    assert settings.audio_retain_s == 0
+    assert settings.load_n_max == 16
+    assert settings.llm_max_batch == 1
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:

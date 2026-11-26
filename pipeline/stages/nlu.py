@@ -122,6 +122,9 @@ class NluHandler:
             "doctor_candidates": json.dumps(candidates),
             "repairs": repairs,
         }
+        tracer = self._session.tracer
+        if tracer is not None:
+            self._session.turn_span.mark(tracer, "nlu")
         nlu = self._session.create_event(EventKind.NLU, payload, frame_index=event.frame_index)
         self.emitted += 1
         _LOG.info(

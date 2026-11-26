@@ -44,6 +44,10 @@ text = "That time was just taken. I can offer another slot."
 id = "handoff_summary"
 text = "I will put you through to the front desk."
 
+[handoff_asr]
+id = "handoff_asr"
+text = "I am having trouble hearing you. I will put you through to the front desk."
+
 [urgent_message]
 id = "seek_emergency"
 text = "If this is an emergency, hang up and call emergency services now."

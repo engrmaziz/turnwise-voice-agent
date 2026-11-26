@@ -1,1 +1,1 @@
-"""Ingress audio: resample once, frame clock, pre-roll, quality, VAD hysteresis."""
+"""Audio helpers that are not on the hot PCM path."""

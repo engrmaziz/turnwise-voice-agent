@@ -119,6 +119,9 @@ class DialogueHandler:
         started = time.perf_counter()
         span = get_current_span()
         span.set_attribute("model", "fsm")
+        tracer = self._session.tracer
+        if tracer is not None:
+            self._session.turn_span.mark(tracer, "dm")
         event_name = classify_event(
             self._machine.state,
             spoken=spoken,
@@ -129,12 +132,29 @@ class DialogueHandler:
             self._session.repeated_no += 1
         else:
             self._session.repeated_no = 0
-        state = self._machine.nlu(
-            spoken=spoken,
-            intent=intent,
-            slots=slots,
-            offer_latched=self._session.offer_human,
-        )
+        conf = _turn_confidence(event, slots)
+        if conf < self._settings.asr_collapse_conf:
+            self._session.asr_collapse_streak += 1
+        else:
+            self._session.asr_collapse_streak = 0
+        if self._session.asr_collapse_streak >= self._settings.asr_collapse_turns:
+            self._metrics.degraded.labels(rung="asr").inc()
+            state = self._machine.step(
+                StepContext(
+                    event="asr_collapse",
+                    spoken=spoken,
+                    intent=intent,
+                    nlu_slots=slots,
+                    settings=self._settings,
+                )
+            )
+        else:
+            state = self._machine.nlu(
+                spoken=spoken,
+                intent=intent,
+                slots=slots,
+                offer_latched=self._session.offer_human,
+            )
         attempts = state.attempts
         self._session.repair_count = max(attempts.values()) if attempts else 0
         if state.state_id in {"URGENT", "HANDOFF"}:
@@ -323,6 +343,7 @@ class DialogueHandler:
             paraphrase=False,
             slots=state.slots,
             metrics=self._metrics,
+            session=self._session,
         )
         name = state.slots.get("patient_name")
         spell_name = 0
@@ -359,6 +380,36 @@ def _on_transition(metrics: StageMetrics, src: str, dst: str) -> None:
         metrics.urgent_keyword.inc()
     if dst == "HANDOFF" and src != "HANDOFF":
         metrics.handoff_total.labels(reason="fsm").inc()
+    if dst in {"CLOSE", "URGENT", "HANDOFF"} and src != dst:
+        metrics.task_outcome.labels(state=dst).inc()
+
+
+def _turn_confidence(event: Event, slots: dict[str, str]) -> float:
+    raw = event.payload.get("slot_conf")
+    if isinstance(raw, int | float) and not isinstance(raw, bool):
+        return float(raw)
+    if isinstance(raw, str) and raw:
+        try:
+            loaded = json.loads(raw)
+        except json.JSONDecodeError:
+            loaded = raw
+        else:
+            if isinstance(loaded, int | float) and not isinstance(loaded, bool):
+                return float(loaded)
+            if isinstance(loaded, list) and loaded:
+                nums = [float(item) for item in loaded if isinstance(item, int | float)]
+                if nums:
+                    ordered = sorted(nums)
+                    mid = len(ordered) // 2
+                    if len(ordered) % 2 == 0:
+                        return (ordered[mid - 1] + ordered[mid]) / 2.0
+                    return ordered[mid]
+    intent_p = event.payload.get("intent_p")
+    if isinstance(intent_p, int | float) and not isinstance(intent_p, bool):
+        return float(intent_p)
+    if slots:
+        return 1.0
+    return 0.0
 
 
 def _slots_from_payload(raw: object) -> dict[str, str]:

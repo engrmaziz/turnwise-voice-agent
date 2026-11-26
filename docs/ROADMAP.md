@@ -105,17 +105,21 @@ Done in Phase 9 (`docs/plan/09_phase_evaluation.md`, `docs/results/phase9.md`). 
 
 ## Phase 11 — Hardening
 
-- One trace per turn spans VAD, ASR final, turn end, NLU, dialogue, model time-to-first-token, TTS first chunk, and first audio out.
-- The Grafana dashboard shows live histograms, queue depth, barge-in, and task outcomes.
-- A load test reports the largest concurrency whose P95 time-to-first-audio still meets `docs/SLOs.md`, and the hardware it was run on.
-- Language-model and TTS contention is measured for CPU TTS, a priority queue, and a capped model batch.
+Done in Phase 10 (`docs/plan/10_phase_hardening_launch.md`, `docs/results/phase10_load.md`). ADR-004 tier stays blocked. Load knee is `n=0 failed at 1` because the scripted caller does not play-ack. ADR-013 does not pick a strategy from an empty p95 column.
+
+- One trace per turn spans VAD, ASR final, turn end, NLU, dialogue, model time-to-first-token, TTS first chunk, and first audio out. Missing children are skip events.
+- The Grafana dashboard shows live histograms, queue depth, barge-in, and task outcomes (appendix G panels 1–12; GPU is a skip panel).
+- A load test reports the largest concurrency whose P95 time-to-first-audio still meets `docs/SLOs.md`, and the hardware it was run on. This checkout: knee 0, host string in the JSON, `adr004_tier=blocked`.
+- Language-model and TTS contention is measured for CPU TTS, a priority queue, and a capped model batch. p95 cells are empty; the pick is blocked (ADR-013).
 - Drills: model down still books via templates; TTS down still plays the cached set; an ASR confidence collapse offers a handoff.
 - Names, dates of birth, and phone numbers are hashed in exported traces. Audio retention defaults off.
 - The README describes HIPAA-style obligations and does not claim compliance.
 
 ## Phase 12 — Packaging
 
-- `docker compose up` starts the server, the workers that were actually built, Grafana, and Jaeger, after a documented model download.
-- The README shows the architecture, the SLO table with measured values beside the targets, the ablations, and the known limitations.
-- ADR-003 is Accepted or still Proposed, matching whether a stack was chosen.
+Done in Phase 10 (`docs/plan/10_phase_hardening_launch.md`, `docs/results/phase10_compose.md`, `docs/RUN.md`, `docs/demo.md`). ADR-003 stays Proposed.
+
+- `docker compose up` starts the server, the workers that were actually built, Grafana, and Jaeger, after a documented model download. Health is 200 with missing weights and degraded flags.
+- The README shows the architecture, the SLO table with measured values beside the targets, the ablations, and the known limitations. Every millisecond or percent in the SLO table cites `docs/results/`.
+- ADR-003 is Accepted or still Proposed, matching whether a stack was chosen. It stays Proposed.
 - A demo script covers a booking, a barge-in mid-confirmation, a noisy name resolved against the catalog, an urgent escalation, and the live dashboard.

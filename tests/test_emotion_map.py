@@ -3,7 +3,6 @@
 from pathlib import Path
 
 from scripts.download_emotion import main as download_main
-
 from training.emotion.map_labels import (
     map_crema,
     map_file,

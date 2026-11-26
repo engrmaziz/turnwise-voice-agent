@@ -20,6 +20,8 @@ COPY nlp ./nlp
 COPY tools ./tools
 COPY evals ./evals
 COPY training ./training
+COPY data ./data
+COPY client ./client
 
 RUN uv sync --frozen --no-dev
 

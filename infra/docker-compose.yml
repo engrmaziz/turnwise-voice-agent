@@ -56,4 +56,5 @@ services:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
       - "16686:16686"
-      - "4317:4317"
+    # OTLP stays on the compose network (jaeger:4317). Publishing 4317 on the host
+    # collides with a local collector and is not required for the app container.

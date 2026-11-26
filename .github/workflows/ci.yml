@@ -20,7 +20,7 @@ jobs:
       - name: Format
         run: uv run ruff format --check .
       - name: Typecheck
-        run: uv run mypy server pipeline models dialogue nlp tools evals training tests
+        run: uv run mypy --strict server pipeline models dialogue nlp tools evals training tests scripts
       - name: Test
         run: uv run pytest
       - name: Eval smoke

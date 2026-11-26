@@ -131,6 +131,16 @@ def handoff(state: DialogueState, _ctx: StepContext) -> DialogueState:
     )
 
 
+def handoff_asr(state: DialogueState, ctx: StepContext) -> DialogueState:
+    nxt = handoff(state, ctx)
+    return nxt.model_copy(
+        update={
+            "last_action": "handoff_asr",
+            "last_template": "handoff_asr",
+        }
+    )
+
+
 def urgent_message(state: DialogueState, _ctx: StepContext) -> DialogueState:
     return state.model_copy(
         update={"last_action": "urgent_message", "last_template": "seek_emergency"}
@@ -220,6 +230,7 @@ ACTIONS: dict[str, ActionFn] = {
     "say_done": say_done,
     "reoffer": reoffer,
     "handoff": handoff,
+    "handoff_asr": handoff_asr,
     "urgent_message": urgent_message,
     "faq_enter": faq_enter,
     "say_faq": say_faq,

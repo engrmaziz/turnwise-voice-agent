@@ -31,6 +31,14 @@ next_state = "HANDOFF"
 
 [[row]]
 state = "*"
+except = ["HANDOFF", "URGENT"]
+event = "asr_collapse"
+guard = "none"
+action = "handoff_asr"
+next_state = "HANDOFF"
+
+[[row]]
+state = "*"
 except = ["HANDOFF"]
 event = "offer_human_yes"
 guard = "offer_latched"

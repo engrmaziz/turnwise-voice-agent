@@ -41,6 +41,9 @@ def unavailable_vad() -> VadEngine:
 class HealthResponse(BaseModel):
     status: str
     service: str
+    degraded_llm: bool = False
+    degraded_tts: bool = False
+    degraded_asr: bool = False
 
 
 @dataclass(slots=True)
@@ -89,7 +92,11 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     turn_scorer = _load_turn(resolved)
     nlu_scorer = _load_nlu(resolved)
     emotion_scorer = _load_emotion(resolved)
-    llm_client = LlmClient.unavailable(timeout_ms=resolved.llm_timeout_ms)
+    llm_client = LlmClient.unavailable(
+        timeout_ms=resolved.llm_timeout_ms,
+        max_batch=resolved.llm_max_batch,
+    )
+    llm_client.queue_wait_observe = metrics.llm_queue_wait.observe
     load_templates()
     tts_pool = load_tts_pool(resolved)
     phrases = warmup_texts(resolved)
@@ -168,7 +175,13 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     @app.get("/health", response_model=HealthResponse)
     async def health(request: Request) -> HealthResponse:
         current = _container(request)
-        return HealthResponse(status="ok", service=current.settings.service_name)
+        return HealthResponse(
+            status="ok",
+            service=current.settings.service_name,
+            degraded_llm=_degraded_llm(current),
+            degraded_tts=_degraded_tts(current),
+            degraded_asr=_degraded_asr(current),
+        )
 
     @app.get("/metrics")
     async def metrics_route(request: Request) -> Response:
@@ -235,6 +248,22 @@ def _load_vad(settings: Settings) -> VadEngine:
         window_samples=settings.vad_window_samples,
         sample_rate_hz=settings.ws_sample_rate_hz,
     )
+
+
+def _degraded_llm(container: AppContainer) -> bool:
+    client = container.llm_client
+    return client is None or not client.available
+
+
+def _degraded_tts(container: AppContainer) -> bool:
+    backend = container.settings.tts_backend.strip()
+    pool = container.tts_pool
+    return backend in {"", "stub"} or pool is None or not pool.available
+
+
+def _degraded_asr(container: AppContainer) -> bool:
+    backend = container.settings.asr_backend.strip()
+    return backend in {"", "stub"}
 
 
 def _container(request: Request) -> AppContainer:

@@ -155,6 +155,15 @@ class EndpointHandler:
             frame_index=frame_index,
         )
         self._session.turn_end_ts = time.monotonic()
+        tracer = self._session.tracer
+        if tracer is not None:
+            self._session.turn_span.open(
+                tracer,
+                session_id=self._session.session_id,
+                turn_id=turn_end.turn_id,
+                generation=turn_end.generation,
+            )
+            self._session.turn_span.mark(tracer, "vad")
         _LOG.info("turn_end", session_id=self._session.session_id, silence_ms=int(silence_ms))
         if self._forward is not None:
             await self._forward(turn_end)

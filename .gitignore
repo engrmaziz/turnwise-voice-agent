@@ -27,5 +27,6 @@ training/nlu/*.wav
 training/emotion/raw/
 data/*.sqlite
 data/*.sqlite-journal
+data/retain/
 docs/results/*.sqlite
 docs/results/*.sqlite-journal

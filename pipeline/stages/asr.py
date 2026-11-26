@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from collections.abc import Awaitable, Callable
@@ -17,6 +18,7 @@ from nlp.hotwords import hotwords_for, load_roster
 from nlp.itn import inverse_normalize
 from nlp.slot_confidence import slot_confidence
 from nlp.temporal import resolve
+from pipeline.audio.retain import retain_pcm
 from pipeline.event import Event, EventKind, JsonValue
 from pipeline.metrics import StageMetrics
 from pipeline.session import Session
@@ -210,6 +212,14 @@ class AsrHandler:
             "ambiguous": 1 if grounded.ambiguous else 0,
             "needs_confirm": 1 if grounded.needs_confirm else 0,
         }
+        tracer = self._session.tracer
+        if tracer is not None:
+            self._session.turn_span.mark(tracer, "asr_final")
+        if self._settings.audio_retain:
+            frames = self._session.snapshot_pcm()
+            if frames:
+                pcm = b"".join(frames[index] for index in sorted(frames))
+                await asyncio.to_thread(retain_pcm, pcm, settings=self._settings)
         final = self._session.create_event(EventKind.FINAL, payload, frame_index=event.frame_index)
         _LOG.info(
             "asr_final",

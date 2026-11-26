@@ -4,7 +4,7 @@ A fully local, streaming voice agent where deterministic dialogue control owns c
 
 Clinic receptionist: book, reschedule, and cancel appointments, answer FAQs, escalate urgent symptoms, hand off to a human. $0 to run after the hardware you already own. No hosted speech or model API on the default path.
 
-**This checkout is Phase 0 through Phase 9.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub + phrase cache), play-ack TTFA, paralinguistic courtesy (fusion + two-turn offer), and a scripted eval harness (DB judge, virtual-clock matrix, CI smoke) are in. The LLM client is a stub. Real ASR, TTS, and emotion weights are not pinned (ADR-006, ADR-010, ADR-011 blocked). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number. Nine hundred virtual calls are not claimed.
+**This checkout is Phase 0 through Phase 10.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub + phrase cache), play-ack TTFA, paralinguistic courtesy (fusion + two-turn offer), a scripted eval harness (DB judge, virtual-clock matrix, CI smoke), per-turn traces, Grafana panels 1–12, a scripted load driver, three degradation drills, model lock/download, and compose packaging are in. The LLM client is a stub. Real ASR, TTS, and emotion weights are not pinned (ADR-006, ADR-010, ADR-011 blocked). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number. Nine hundred virtual calls are not claimed. Load knee is `n=0 failed at 1` because the scripted caller does not play-ack. ADR-003 stays Proposed. ADR-004 and ADR-013 stay blocked.
 
 ## Scope
 
@@ -24,25 +24,29 @@ Urgent-symptom keywords (chest pain, cannot breathe, and the list in settings) e
 
 ### Non-goals
 
-HIPAA certification or a compliance claim. Server-side acoustic echo cancellation (browser `echoCancellation` only). Multilingual recognition, outbound dialing, payments, insurance eligibility, prescribing. Letting the language model choose dialogue state, check availability, write a booking, or decide urgency.
+HIPAA certification or a compliance claim. Server-side acoustic echo cancellation (browser `echoCancellation` only). Multilingual recognition, outbound dialing, payments, insurance eligibility, prescribing. Letting the language model choose dialogue state, check availability, write a booking, or decide urgency. ADR-003 stays Proposed: no ASR/LLM/TTS stack is named from measured `ok` cells.
 
 ## SLO targets (unmet)
 
-Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number below has been measured on a call. Measured latencies so far: in-process stage hop, resample p50, Silero VAD p50, ITN p50, temporal p50, turn-classifier p50, synthetic cancel latency, NLU student p50, the tool-filler timestamp delta, stub TTS cache-hit p50, and stub first-chunk p50 (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/results/phase2.md`](docs/results/phase2.md), [`docs/results/phase3.md`](docs/results/phase3.md), [`docs/results/phase4.md`](docs/results/phase4.md), [`docs/results/phase5.md`](docs/results/phase5.md), [`docs/results/phase6.md`](docs/results/phase6.md), [`docs/results/phase7.md`](docs/results/phase7.md), [`docs/results/phase8.md`](docs/results/phase8.md)).
+Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product TTFA has been measured on a call. Virtual-clock task success is not an SLO quote (ADR-012). Every millisecond or percent in the table cites a `docs/results/` file.
 
-| Metric | Target |
+| Metric | Target and measured |
 |---|---|
-| Time-to-first-audio P50 / P95 | ≤ 700 ms / ≤ 1200 ms |
-| Task success, clean audio | ≥ 90% |
-| Task success, 10 dB SNR | ≥ 75% |
-| False barge-in | < 2% of agent utterances |
-| Early cutoff | < 5% of user turns |
-| Slot F1 on ASR output | Report only (`golden_incomplete`; see [`docs/results/phase5.md`](docs/results/phase5.md)) |
-| Urgent-case recall | ~100% (keyword path sufficient) |
-| Critical-slot error after confirmation | ~0% (confirmed value vs scenario truth) |
-| FAQ hallucination rate | TARGET 0 on the FAQ set once the judge exists |
+| Time-to-first-audio P50 / P95 | TARGET ≤ 700 ms / ≤ 1200 ms, unmet. Realtime subset skipped (`docs/results/phase9.md`). Load knee `n=0 failed at 1`, no play-ack p95 (`docs/results/phase10_load.md`). |
+| Task success, clean audio | TARGET ≥ 90%. Smoke `task_success` 0.9 is virtual-clock, not this SLO (`docs/results/phase9.md`). |
+| Task success, 10 dB SNR | TARGET ≥ 75%. Matrix `task_success` 0.888… is virtual-clock n=9, not this SLO (`docs/results/phase9.md`). |
+| False barge-in | TARGET < 2% of agent utterances. Realtime subset skipped (`docs/results/phase9.md`). |
+| Early cutoff | TARGET < 5% of user turns. Realtime subset skipped (`docs/results/phase9.md`). |
+| Slot F1 on ASR output | Report only (`golden_incomplete`; unpublished) (`docs/results/phase5.md`). |
+| Urgent-case recall | TARGET ~100% (keyword path sufficient). Keyword drill in (`docs/results/phase9.md`). |
+| Critical-slot error after confirmation | TARGET ~0% (confirmed value vs scenario truth) (`docs/results/phase9.md`). |
+| FAQ hallucination rate | TARGET 0 on the FAQ set (`docs/results/phase9.md`). |
 
 Time-to-first-content-audio and false urgent-escalation rate are recorded without a numeric cap.
+
+## Privacy (not a compliance claim)
+
+Configured PII keys (names, dates of birth, phones) are HMAC-hashed in logs. Spans carry `session_id`, `turn_id`, `generation`, `stage`, `model`, and `latency_ms`; they must not carry payload names. Audio retention defaults off (`TURNWISE_AUDIO_RETAIN=false`). Compose does not flip that flag on. This paragraph describes engineering controls. It is not HIPAA certification, a BAA, or permission to run Turnwise as a covered-entity production system.
 
 ## Architecture
 
@@ -57,7 +61,9 @@ uv sync --all-groups
 uv run python scripts/download_silero_vad.py
 uv run pytest
 uv run python -m evals.bench
+uv run python scripts/download_models.py
 uv run python -m evals.smoke_gate --write-only
+uv run python -m evals.load --n 2 --out-dir docs/results
 uv run python -m server
 ```
 
@@ -122,6 +128,11 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M9.3 DB judge; soft cannot override | done |
 | M9.4 virtual matrix + realtime skip | done (actual n in JSON; ADR-012) |
 | M9.5 ablations + CI smoke | done (result-or-blocked; unsafe writer not in `server/`) |
-| Phase 10 | not started |
+| M10.1 per-turn traces + Grafana 8–12 | done (GPU skip panel; see `infra/grafana/dashboards/turnwise.json`) |
+| M10.2 load knee + LLM priority/batch | done (knee `n=0 failed at 1`; ADR-013 blocked; [`docs/results/phase10_load.md`](docs/results/phase10_load.md)) |
+| M10.3 degrade drills, span PII, retain off | done |
+| M10.4 lock/download, compose, missing weights | done ([`docs/results/phase10_compose.md`](docs/results/phase10_compose.md), [`docs/RUN.md`](docs/RUN.md)) |
+| M10.5 README sources, demo, blog, ADR index | done ([`docs/demo.md`](docs/demo.md), [`docs/blog/generation_cancellation.md`](docs/blog/generation_cancellation.md)) |
+| Phase 10 | done |
 
 Roadmap with acceptance lines: [`docs/ROADMAP.md`](docs/ROADMAP.md).

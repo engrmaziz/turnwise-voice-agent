@@ -1,0 +1,13 @@
+# Model lock. Hashes are filled by downloads already done.
+# Default --required is false so CI stays weight-free.
+# Versions are the strings from docs/benchmarks.md, not invented.
+
+required = false
+
+[[model]]
+name = "silero_vad"
+path = "models/weights/silero_vad.onnx"
+sha256 = ""
+url = "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx"
+version = ""
+note = "Quoted in docs/results/phase2.md. Benchmarks.md does not pin Zipformer, Whisper, LLM, or TTS."

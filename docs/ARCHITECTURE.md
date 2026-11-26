@@ -1,8 +1,8 @@
 # Architecture
 
-Turnwise is a local, full-duplex clinic receptionist. This milestone is the event bus, the audio front end, spoken-form ASR, turn-taking, spoken NLU, the dialogue FSM with SQLite tools, streaming TTS, paralinguistic courtesy, and a scripted eval harness: typed events, bounded queues, a PCM16 WebSocket, one resample at ingress, Silero VAD, a stub ASR pool that emits `PARTIAL`/`FINAL`, rule-based ITN, a clinic-clock date resolver, a hybrid endpointer, gated barge-in, an NLU stage on `FINAL.spoken`, a table-driven dialogue machine, token-overlap FAQ (ADR-009), a SQLite calendar, abbreviation-safe chunking, deterministic TN, a process-local phrase cache, a stub TTS pool that emits silence of known duration, an utterance-emotion stub that returns `None`, late-fusion that can offer a human without owning urgency, and YAML scenarios judged against SQLite (ADR-012). The LLM client is a stub (T1.4.3 blocked). Real Zipformer, Whisper, Piper, Kokoro, and emotion ONNX rows are `blocked` (ADR-006, ADR-010, ADR-011). `python -m evals.bench` times those workers off the call path and writes `docs/benchmarks.md` from JSON. Task success lives in `docs/results/phase9.md`; it is not a 900-call claim.
+Turnwise is a local, full-duplex clinic receptionist. This milestone is the event bus through hardening: typed events, bounded queues, a PCM16 WebSocket, one resample at ingress, Silero VAD, a stub ASR pool that emits `PARTIAL`/`FINAL`, rule-based ITN, a clinic-clock date resolver, a hybrid endpointer, gated barge-in, an NLU stage on `FINAL.spoken`, a table-driven dialogue machine, token-overlap FAQ (ADR-009), a SQLite calendar, abbreviation-safe chunking, deterministic TN, a process-local phrase cache, a stub TTS pool that emits silence of known duration, an utterance-emotion stub that returns `None`, late-fusion that can offer a human without owning urgency, YAML scenarios judged against SQLite (ADR-012), a parent span `turn` per TURN_END, a Grafana board matching appendix G, a scripted load driver, and a degradation ladder (LLM templates, TTS cache-then-close, ASR collapse handoff). The LLM client is a stub (T1.4.3 blocked). Real Zipformer, Whisper, Piper, Kokoro, and emotion ONNX rows are `blocked` (ADR-006, ADR-010, ADR-011). `python -m evals.bench` times those workers off the call path and writes `docs/benchmarks.md` from JSON. Task success lives in `docs/results/phase9.md`; it is not a 900-call claim. Load knee lives in `docs/results/phase10_load.md`.
 
-Design constraints are ADR-001 (the FSM owns state), ADR-002 (bounded queues and generation cancellation), ADR-003 (model choice waits on measured rows), ADR-004 (hardware tier, blocked), ADR-006 (ASR backend, blocked until finalize p50 exists), ADR-009 (token-overlap FAQ until embeddings are measured), ADR-010 (TTS on CPU, stub until a synthesizer p50 exists), ADR-011 (emotion default-off until a call-like calibration file exists), and ADR-012 (virtual versus realtime eval clocks; only realtime TTFA and DB-judged task success may be quoted).
+Design constraints are ADR-001 (the FSM owns state), ADR-002 (bounded queues and generation cancellation), ADR-003 (model choice waits on measured rows), ADR-004 (hardware tier, blocked), ADR-006 (ASR backend, blocked until finalize p50 exists), ADR-009 (token-overlap FAQ until embeddings are measured), ADR-010 (TTS on CPU, stub until a synthesizer p50 exists), ADR-011 (emotion default-off until a call-like calibration file exists), ADR-012 (virtual versus realtime eval clocks; only realtime TTFA and DB-judged task success may be quoted), and ADR-013 (contention strategy blocked until a play-ack p95 exists).
 
 ## Pipeline
 
@@ -64,7 +64,7 @@ The planner fills `dialogue/templates.toml` with confirmed slots only. Over-long
 
 ## Evaluation
 
-`evals/` is a separate process. Production WebSocket does not implement text injection (`eval_text_inject` default false). The scripted caller injects NLU events with scenario slots; the DB judge compares SQLite and FSM state to those slots. Soft politeness/clarity scores nest under `task_success` and cannot flip it. Virtual-clock matrix JSON records actual `n`, `elapsed_s`, and `time_scale`. Realtime TTFA is `skipped` until a wall-clock driver runs (ADR-012). Ablations are result-or-blocked. `evals/unsafe_llm_writer.py` is a test double; `server/` must not import it. Results: `docs/results/phase9.md`.
+`evals/` is a separate process. Production WebSocket does not implement text injection (`eval_text_inject` default false). The scripted caller injects NLU events with scenario slots; the DB judge compares SQLite and FSM state to those slots. Soft politeness/clarity scores nest under `task_success` and cannot flip it. Virtual-clock matrix JSON records actual `n`, `elapsed_s`, and `time_scale`. Realtime TTFA is `skipped` until a wall-clock driver runs (ADR-012). Ablations are result-or-blocked. `evals/unsafe_llm_writer.py` is a test double; `server/` must not import it. Results: `docs/results/phase9.md`. Concurrent scripted load is `evals/load.py`; scripted inject does not play-ack, so TTFA p95 is unpublished and the knee is `n=0 failed at 1` (`docs/results/phase10_load.md`, ADR-013).
 
 ## Event schema
 
@@ -107,7 +107,7 @@ There is no await inside `barge_in` between the increment and the cancels, so a 
 
 `Stage.run` handles `CancelledError` by clearing the cancellation count (Python 3.11 raises again at the next await while `cancelling()` is non-zero), running the cleanup hook once, and re-raising. A handler exception is counted, logged with the bound ids, cleaned up, and re-raised. The stage task ends. A supervisor that restarts a stage is not part of this milestone; the owner closes the session.
 
-Spans use `session_id`, `turn_id`, `generation`, `stage`, `model`, and `latency_ms`. `model` is `none` until a stage calls a model. The VAD stage sets `model` to the ONNX file name (or `unavailable` / energy fallback) and `audio_quality` to `ok`, `clipped`, or `dead`. The payload is not an attribute.
+Spans use `session_id`, `turn_id`, `generation`, `stage`, `model`, and `latency_ms`. `model` is `none` until a stage calls a model. The VAD stage sets `model` to the ONNX file name (or `unavailable` / energy fallback) and `audio_quality` to `ok`, `clipped`, or `dead`. The payload is not an attribute. A parent span `turn` opens at `TURN_END` and closes on the first content play-ack or session end. Children are `vad`, `asr_final`, `turn_end`, `nlu`, `dm`, `llm_ttft`, `tts_first_chunk`, `first_audio_out`. Missing children are `stage.skipped` events with a reason, not fabricated spans.
 
 ## Workers and the HTTP process
 
@@ -206,6 +206,9 @@ Counters are created without a `_total` suffix. Prometheus adds it on the scrape
 | `turnwise_emotion_timeouts_total` | Emotion inferences that exceeded `emotion_timeout_ms`. |
 | `turnwise_fusion_score` | Late-fusion frustration score in `[0, 1]`. |
 | `turnwise_offer_human_total` | Rising-edge courtesy offers after two over-threshold turns. |
+| `turnwise_task_outcome_total` | FSM arrivals at CLOSE, URGENT, or HANDOFF. Label `state`. |
+| `turnwise_degraded_total` | Degradation-ladder trips. Label `rung` (`llm`, `tts`, `asr`). |
+| `turnwise_llm_queue_wait_seconds` | Wait in the LLM priority queue before a worker starts. |
 
 Logs go through structlog. `session_id`, `turn_id`, and `generation` are bound for the handler. Configured PII field names are HMAC-SHA256'd. A log key named `payload` is replaced with `omitted`. If `TURNWISE_PII_HASH_KEY` is unset, the process generates a key and logs `pii_hash_key_unset` once; hashes will not join across restarts.
 
@@ -267,10 +270,11 @@ Every external call gets a timeout from settings. Rows without a live stage are 
 | Illegal FSM proposal | Validator reject | Stay in the state and re-prompt |
 | Tool slower than 300 ms | Timeout | Cached filler, one retry, same idempotency key |
 | Slot taken between offer and confirm | Optimistic-lock conflict | Re-offer alternatives |
-| Language model timeout or down | Timeout or health check | Templates only |
+| Language model timeout or down | Timeout or health check | Templates only; `/health` sets `degraded_llm` |
+| ASR confidence collapse | Median slot confidence below `asr_collapse_conf` for `asr_collapse_turns` | Template `handoff_asr`, then HANDOFF |
 | Chunker holds too long | Max-hold timer | Flush a safe clause |
 | Text-normalization failure on a confirmation | Exception | Generic re-prompt; do not speak the raw entity |
-| TTS down | Timeout or health check | Pre-rendered phrase set |
+| TTS down | Two consecutive pool errors | Cached `cannot_speak` then `goodbye`; empty cache closes the session (`tts_dead`) |
 | Client ack stalls | Ack timeout | Bump generation and stop playout |
 | Paralinguistics timeout | Timeout | Score from dialogue signals only |
 | Urgent keyword hit | Deterministic matcher | Escalate even if the classifier disagrees |
@@ -285,14 +289,15 @@ From `infra/`:
 docker compose -f infra/docker-compose.yml up --build
 ```
 
-That starts the app, Prometheus (port 9090), Grafana (port 3000, anonymous viewer), and Jaeger (UI 16686, OTLP gRPC 4317). The Grafana dashboard `Turnwise` is provisioned from `infra/grafana/dashboards/turnwise.json`. TTFA panels fill after a play-ack; a unit-test scrape is not a 900-call result.
+That starts the app, Prometheus (port 9090), Grafana (port 3000, anonymous viewer), and Jaeger (UI 16686, OTLP gRPC 4317). The Grafana dashboard `Turnwise` is provisioned from `infra/grafana/dashboards/turnwise.json` with appendix G panels 1–12 and a GPU skip panel. TTFA panels fill after a play-ack; a unit-test scrape is not a 900-call result. Compose boot: `docs/results/phase10_compose.md`. Operator steps: `docs/RUN.md`.
 
 Settings and defaults are in `server/config.py` and `.env.example`.
 
 ## What this milestone does not do
 
 - TTS weights are not pinned. The call path uses the silence stub and a process-local phrase cache (ADR-010). Ingress, VAD, the ASR stub, the endpointer, gated barge-in, spoken NLU, the dialogue FSM, FAQ overlap, SQLite bookings, chunking, TN, and play-ack TTFA are live. The NLU student trains on stub-ASR text; Zipformer/Whisper weights are not pinned (ADR-006 blocked). Golden slot F1 is unpublished (`golden_incomplete`). The LLM is a stub. `regex_slots` is not on the default import path.
-- No model is pinned for ASR, LLM, or TTS. ADR-003 stays Proposed. ADR-004 is blocked until those rows are `ok`. ADR-010 names CPU and leaves `tts_backend` empty.
+- No model is pinned for ASR, LLM, or TTS. ADR-003 stays Proposed. ADR-004 is blocked until those rows are `ok`. ADR-010 names CPU and leaves `tts_backend` empty. ADR-013 does not pick a contention strategy from an empty p95 column.
+- Audio retention defaults off (`audio_retain` false). Compose does not set `TURNWISE_AUDIO_RETAIN=true`.
 - No session supervisor. A failed stage task stays failed until the owner closes it.
 - Playback acks use `stream: play` and a play-frame index that starts at 0 per SAY generation. Capture stays on `stream: cap`.
 - PII redaction covers configured log keys and any `payload` key. A span that later sets a raw name as an attribute would bypass it; stage code must keep using ids and `model` only. PCM must stay off the payload.

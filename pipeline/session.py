@@ -7,9 +7,12 @@ from datetime import datetime
 from enum import StrEnum
 from zoneinfo import ZoneInfo
 
+from opentelemetry.trace import Tracer
+
 from nlp.fusion import EmotionProbs
 from pipeline.errors import SessionNotFoundError
 from pipeline.event import Event, EventKind, JsonValue
+from pipeline.trace_turn import TurnSpan
 
 
 class AudioQuality(StrEnum):
@@ -55,9 +58,13 @@ class Session:
         "_speaking",
         "_stable_prefix",
         "_timezone",
+        "_tracer",
+        "_tts_dead",
         "_turn_end_ts",
         "_turn_id",
+        "_turn_span",
         "_wire_pcm",
+        "asr_collapse_streak",
     )
 
     def __init__(
@@ -98,6 +105,10 @@ class Session:
         self._offer_say_pending = False
         self._repair_count = 0
         self._repeated_no = 0
+        self._tts_dead = False
+        self._turn_span = TurnSpan()
+        self._tracer: Tracer | None = None
+        self.asr_collapse_streak = 0
 
     @property
     def session_id(self) -> str:
@@ -215,6 +226,7 @@ class Session:
 
     def barge_in(self) -> int:
         """Supersede the current generation and cancel registered speaking tasks."""
+        self._turn_span.close(reason="barge_in")
         self._generation += 1
         self._turn_id += 1
         self._barged_this_turn = True
@@ -326,6 +338,24 @@ class Session:
         if value < 0:
             raise ValueError("repeated_no must be >= 0")
         self._repeated_no = value
+
+    def bind_tracer(self, tracer: Tracer) -> None:
+        self._tracer = tracer
+
+    @property
+    def tracer(self) -> Tracer | None:
+        return self._tracer
+
+    @property
+    def turn_span(self) -> TurnSpan:
+        return self._turn_span
+
+    @property
+    def tts_dead(self) -> bool:
+        return self._tts_dead
+
+    def note_tts_dead(self) -> None:
+        self._tts_dead = True
 
     def _discard_speaking(self, task: asyncio.Task[None]) -> None:
         self._speaking.discard(task)

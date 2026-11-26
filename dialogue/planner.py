@@ -17,6 +17,7 @@ from dialogue.templates import Template, TemplateCatalog, load_templates
 from models.llm_client import LlmClient, LlmGrammarError, LlmTimeoutError
 from nlp.tn import TnContext, normalize_for_tts
 from pipeline.metrics import StageMetrics
+from pipeline.session import Session
 from server.config import Settings
 
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
@@ -110,16 +111,20 @@ async def speak(
     slots: dict[str, SlotValue] | None = None,
     metrics: StageMetrics | None = None,
     catalog: TemplateCatalog | None = None,
+    session: Session | None = None,
 ) -> str:
     loaded = catalog if catalog is not None else load_templates()
     catalog_text = loaded.text_for_id(template_id, fallback)
     template = fallback if fallback else catalog_text
     if not paraphrase or llm is None or not llm.available:
         return template
+    if session is not None and session.tracer is not None:
+        session.turn_span.mark(session.tracer, "llm_ttft")
     try:
         payload = await llm.complete_json(
             f"Paraphrase in under {settings.paraphrase_max_chars} characters: {template}",
             ParaphraseSchema,
+            speaking=True,
         )
     except (LlmGrammarError, LlmTimeoutError):
         return template
