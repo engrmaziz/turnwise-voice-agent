@@ -66,7 +66,8 @@ def test_tts_gpu_not_present_when_nvidia_smi_missing(settings: Settings, tmp_pat
     status, detail = probe_nvidia(missing)
     assert status == "not_present"
     assert detail is None
-    rows = measure_tts(settings, nvidia_smi=missing)
+    configured = settings.model_copy(update={"tts_piper_onnx_path": str(tmp_path / "missing.onnx")})
+    rows = measure_tts(configured, nvidia_smi=missing)
     cpu = next(row for row in rows if row.name == "tts.first_chunk.cpu")
     gpu = next(row for row in rows if row.name == "tts.first_chunk.gpu")
     assert cpu.status == "blocked"

@@ -30,3 +30,22 @@ def test_health_200_with_empty_model_dir(tmp_path: Path, settings: Settings) -> 
         assert body["degraded_llm"] is True
         assert body["degraded_tts"] is True
         assert body["degraded_asr"] is True
+
+
+def test_health_200_when_piper_onnx_missing(tmp_path: Path, settings: Settings) -> None:
+    empty = tmp_path / "weights"
+    empty.mkdir()
+    configured = settings.model_copy(
+        update={
+            "tts_backend": "piper",
+            "tts_piper_onnx_path": str(empty / "en_US-amy-low.onnx"),
+            "tts_piper_config_path": str(empty / "en_US-amy-low.onnx.json"),
+            "asr_backend": "",
+        }
+    )
+    app = create_app(configured)
+    with TestClient(app) as client:
+        health = client.get("/health")
+        assert health.status_code == 200
+        body = health.json()
+        assert body["degraded_tts"] is True

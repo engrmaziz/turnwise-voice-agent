@@ -1,6 +1,6 @@
 # Phase 7 results
 
-Host: Python 3.11.9, Windows-10-10.0.26300-SP0. Numbers below came from running the named command on this machine. No Piper or Kokoro first-chunk p50 is claimed. TTS weights were not downloaded.
+Host: Python 3.11.9, Windows-10-10.0.26300-SP0. Stub numbers below came from `tests/test_tts_stub_latency.py`. Piper CPU first-chunk is a later JSON: `docs/results/phase7_piper.md` / `docs/results/bench/20261126T175404Z.json`.
 
 ## Entry criteria
 
@@ -9,7 +9,7 @@ Host: Python 3.11.9, Windows-10-10.0.26300-SP0. Numbers below came from running 
 | M6.2 template id + confirmed slots | met (Phase 6) |
 | T6.3.4 paraphrase cap 180 | met |
 | T4.3.3 `PlaybackCursor.note_chunk` | met. Audio-out is the first production caller. |
-| T1.4.4 TTS JSON | **blocked**. `missing_tts:import_piper,import_kokoro`. Stub silence of known duration is the pool. |
+| T1.4.4 TTS JSON | **ok** for CPU Piper (`docs/results/phase7_piper.md`). GPU TTS still blocked. Default `tts_backend` empty is still the silence stub. |
 
 ## M7.1 Templates and paraphrase
 
@@ -55,23 +55,23 @@ JSON: `docs/results/phase7_stub.json` written by `tests/test_tts_stub_latency.py
 | cache_hit_p95_ms | **0.0106** |
 | stub_first_chunk_p50_ms | **0.1145** |
 | stub_first_chunk_p95_ms | **0.2414** |
-| kokoro_piper | blocked |
+| kokoro_piper | piper ok (see `docs/results/phase7_piper.md`); kokoro unpinned |
 
-Cache-hit p50 is under 5 ms in-process. Stub synth p50 is not a Kokoro/Piper number and does not meet or miss the 200 ms TARGET.
+Cache-hit p50 is under 5 ms in-process. Stub synth p50 is not a Kokoro/Piper number. Piper CPU first-chunk p50 **33.9 ms** / p95 **39.1 ms** is inside the 200 ms TARGET (`docs/results/phase7_piper.md`).
 
 TTFA histograms observe on **play-ack**, not socket write (`tests/test_ttfa_observe.py`). Filler then content: two different samples. Content-only: two equal samples. Count is > 0 in that unit test. `/health` scrape without a play-ack still shows count 0. `turnwise_playback_unmap_total` stays 0 when `note_chunk` ran. Grafana panel screenshot is skipped; the unit-test scrape is the exhibit, not a 900-call result.
 
 Timeout 800 ms plays cached `cannot_speak` when present. Empty PCM is an error. Stale generation PCM is dropped.
 
-ADR-010: CPU default. GPU present on this host is not a TTS default.
+ADR-010: CPU default. Named synthesizer is piper-tts 1.8.0 / en_US-amy-low. GPU present on this host is not a TTS default. `tts_backend` still defaults empty.
 
 ## Known limitations
 
-- Real TTS weights are not pinned. Callers hear silence of known duration (stub) or cached stub PCM.
-- Product TTFA P50/P95 remain unmet until phase 9's real-time subset.
-- TTS→ASR substitutions on the doctor roster were not scored (both models missing).
+- Default call path is still the silence stub until `TURNWISE_TTS_BACKEND=piper`.
+- Product TTFA P50/P95 remain unmet until a synthesizer play-ack load (ADR-012, ADR-013).
+- TTS→ASR substitutions on the doctor roster were not scored (ASR missing).
 - UTMOS was not run.
 
 ## License
 
-No TTS weight license to copy. Warmup phrases are invented English clinic templates.
+Warmup phrases are invented English clinic templates. Voice files are `en_US-amy-low` from Hugging Face `rhasspy/piper-voices`. A `LICENSE` file at that repo root returned 404 on 2026-11-26; do not invent an SPDX. Operators must accept the Hugging Face model card before redistributing the ONNX.

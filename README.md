@@ -4,7 +4,7 @@ A fully local, streaming voice agent where deterministic dialogue control owns c
 
 Clinic receptionist: book, reschedule, and cancel appointments, answer FAQs, escalate urgent symptoms, hand off to a human. $0 to run after the hardware you already own. No hosted speech or model API on the default path.
 
-**This checkout is Phase 0 through Phase 10.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub + phrase cache), play-ack TTFA, paralinguistic courtesy (fusion + two-turn offer), a scripted eval harness (DB judge, virtual-clock matrix, CI smoke), per-turn traces, Grafana panels 1–12, a scripted load driver, three degradation drills, model lock/download, and compose packaging are in. The LLM client is a stub. Real ASR, TTS, and emotion weights are not pinned (ADR-006, ADR-010, ADR-011 blocked). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number. Nine hundred virtual calls are not claimed. Load knee is 16 at `load_n_max` on stub play-ack (histogram p95 0.05–0.1 s, not a product quote). ADR-003 stays Proposed. ADR-004 and ADR-013 stay blocked.
+**This checkout is Phase 0 through Phase 10.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub by default; CPU Piper when `TURNWISE_TTS_BACKEND=piper`), play-ack TTFA, paralinguistic courtesy (fusion + two-turn offer), a scripted eval harness (DB judge, virtual-clock matrix, CI smoke), per-turn traces, Grafana panels 1–12, a scripted load driver, three degradation drills, model lock/download, and compose packaging are in. The LLM client is a stub. Real ASR and emotion weights are not pinned (ADR-006, ADR-011). Piper CPU first-chunk p50 is 33.9 ms (`docs/results/phase7_piper.md`). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number. Nine hundred virtual calls are not claimed. Load knee is 16 at `load_n_max` on stub play-ack (histogram p95 0.05–0.1 s, not a product quote). ADR-003 stays Proposed. ADR-004 and ADR-013 stay blocked.
 
 ## Scope
 
@@ -24,7 +24,7 @@ Urgent-symptom keywords (chest pain, cannot breathe, and the list in settings) e
 
 ### Non-goals
 
-HIPAA certification or a compliance claim. Server-side acoustic echo cancellation (browser `echoCancellation` only). Multilingual recognition, outbound dialing, payments, insurance eligibility, prescribing. Letting the language model choose dialogue state, check availability, write a booking, or decide urgency. ADR-003 stays Proposed: no ASR/LLM/TTS stack is named from measured `ok` cells.
+HIPAA certification or a compliance claim. Server-side acoustic echo cancellation (browser `echoCancellation` only). Multilingual recognition, outbound dialing, payments, insurance eligibility, prescribing. Letting the language model choose dialogue state, check availability, write a booking, or decide urgency. ADR-003 stays Proposed: ASR and LLM are unnamed. ADR-010 names CPU Piper from a measured first-chunk row; default `tts_backend` stays empty.
 
 ## SLO targets (unmet)
 
@@ -118,7 +118,7 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M7.1 templates + paraphrase slots | done |
 | M7.2 abbreviation-safe chunker | done |
 | M7.3 deterministic TN | done |
-| M7.4 phrase cache, play frames, TTFA | done (stub TTS; ADR-010 CPU; see [`docs/results/phase7.md`](docs/results/phase7.md)) |
+| M7.4 phrase cache, play frames, TTFA | done (Piper CPU first-chunk p50 33.9 ms; default stub; ADR-010; [`docs/results/phase7.md`](docs/results/phase7.md), [`docs/results/phase7_piper.md`](docs/results/phase7_piper.md)) |
 | M8.1 utterance emotion stub | done (acted train skipped; timeout → `None`; see [`docs/results/phase8.md`](docs/results/phase8.md)) |
 | M8.2 late fusion + lexicon | done (no-audio path 0.4 / 0.6; weights sum 1.0) |
 | M8.3 two-turn offer, not handoff | done (keywords still win) |

@@ -21,7 +21,7 @@ No strategy is chosen from this p95 column. It is silence-stub play-ack, not a s
 
 Defaults that remain in force until a **real TTS** play-ack load fills p95:
 
-- TTS on **CPU** (ADR-010). `tts_backend` stays empty (silence stub).
+- TTS on **CPU** (ADR-010 names Piper). Default `tts_backend` stays empty (silence stub) so this load column stays labeled stub.
 - Speaking LLM jobs enqueue at priority 0, idle jobs at 1. That queue exists; it is not a p95 winner.
 - `llm_max_batch` stays **1**. Batch 4 was not measured against a real-TTS TTFA p95.
 

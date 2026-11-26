@@ -75,7 +75,7 @@ Done in Phase 6 (`docs/plan/06_phase_dialogue_tools.md`, `docs/results/phase6.md
 
 ## Phase 8 — Speech out
 
-Done in Phase 7 (`docs/plan/07_phase_tts.md`, `docs/results/phase7.md`). TTS weights blocked (`missing_tts:import_piper,import_kokoro`). ADR-010 CPU default. Stub silence of known duration. TTFA observes on play-ack in a unit test; product P50 unmet.
+Done in Phase 7 (`docs/plan/07_phase_tts.md`, `docs/results/phase7.md`). Piper CPU first-chunk p50 33.9 ms (`docs/results/phase7_piper.md`). ADR-010 CPU default; `tts_backend` empty unless the operator enables piper. TTFA observes on play-ack in a unit test; product P50 unmet.
 
 - The chunker flushes the first clause early and does not split "Dr." or "p.m.".
 - Normalization speaks "Doctor", digit-by-digit phone numbers, and clock times. It is deterministic.

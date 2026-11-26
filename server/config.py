@@ -117,6 +117,8 @@ class Settings(BaseSettings):
     calendar_db_path: str = "data/turnwise.sqlite"
     llm_timeout_ms: int = 2000
     tts_backend: str = ""
+    tts_piper_onnx_path: str = "models/weights/piper/en_US-amy-low.onnx"
+    tts_piper_config_path: str = "models/weights/piper/en_US-amy-low.onnx.json"
     tts_voice: str = "default"
     tts_speed: float = 1.0
     tts_digit_speed: float = 0.85

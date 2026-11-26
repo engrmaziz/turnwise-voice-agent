@@ -48,6 +48,8 @@ def test_default_backchannel_list_excludes_yes() -> None:
     assert settings.repair_handoff_after == 3
     assert settings.tool_filler_after_ms == 300
     assert settings.tts_backend == ""
+    assert settings.tts_piper_onnx_path == "models/weights/piper/en_US-amy-low.onnx"
+    assert settings.tts_piper_config_path == "models/weights/piper/en_US-amy-low.onnx.json"
     assert settings.tts_voice == "default"
     assert settings.tts_digit_speed == 0.85
     assert settings.tts_frame_ms == 20

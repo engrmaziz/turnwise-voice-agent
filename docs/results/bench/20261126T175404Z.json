@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "started_utc": "20261126T175404Z",
+  "command": [
+    "D:\\mak_dev\\turnwise-voice-agent\\evals\\bench\\__main__.py"
+  ],
+  "host": {
+    "platform": "Windows-10-10.0.26300-SP0",
+    "python": "3.11.9",
+    "cpu_count": 16,
+    "ram_gb": 63.84,
+    "nvidia_smi": "NVIDIA GeForce RTX 3090, 24576",
+    "nvidia_status": "present"
+  },
+  "warmup": 5,
+  "samples": 20,
+  "fixture_text": "The north wind and the sun were disputing which was the stronger.",
+  "fixture_license": "public-domain",
+  "fixture_audio": "windows_sapi:docs/results/bench/fixtures/north_wind.wav",
+  "rows": [
+    {
+      "name": "asr.zipformer.finalize",
+      "status": "blocked",
+      "version": null,
+      "reason": "import_sherpa_onnx",
+      "p50_ms": null,
+      "p95_ms": null,
+      "extra": {}
+    },
+    {
+      "name": "asr.whisper_la2.finalize",
+      "status": "blocked",
+      "version": null,
+      "reason": "import_faster_whisper",
+      "p50_ms": null,
+      "p95_ms": null,
+      "extra": {}
+    },
+    {
+      "name": "asr.whisper_la2.stabilization",
+      "status": "blocked",
+      "version": null,
+      "reason": "import_faster_whisper",
+      "p50_ms": null,
+      "p95_ms": null,
+      "extra": {}
+    },
+    {
+      "name": "llm.ttft.grammar_on",
+      "status": "blocked",
+      "version": null,
+      "reason": "missing_llm_binary",
+      "p50_ms": null,
+      "p95_ms": null,
+      "extra": {}
+    },
+    {
+      "name": "llm.ttft.grammar_off",
+      "status": "blocked",
+      "version": null,
+      "reason": "missing_llm_binary",
+      "p50_ms": null,
+      "p95_ms": null,
+      "extra": {}
+    },
+    {
+      "name": "llm.tokens_per_second.grammar_on",
+      "status": "blocked",
+      "version": null,
+      "reason": "missing_llm_binary",
+      "p50_ms": null,
+      "p95_ms": null,
+      "extra": {}
+    },
+    {
+      "name": "llm.tokens_per_second.grammar_off",
+      "status": "blocked",
+      "version": null,
+      "reason": "missing_llm_binary",
+      "p50_ms": null,
+      "p95_ms": null,
+      "extra": {}
+    },
+    {
+      "name": "tts.first_chunk.cpu",
+      "status": "ok",
+      "version": "piper-tts:1.8.0;voice=en_US-amy-low;device=cpu",
+      "reason": null,
+      "p50_ms": 33.93310000683414,
+      "p95_ms": 39.1231150002568,
+      "extra": {
+        "text": "Hello this is Turnwise.",
+        "output_hz": 16000,
+        "onnx": "models/weights/piper/en_US-amy-low.onnx"
+      }
+    },
+    {
+      "name": "tts.first_chunk.gpu",
+      "status": "blocked",
+      "version": null,
+      "reason": "model_layout_unpinned",
+      "p50_ms": null,
+      "p95_ms": null,
+      "extra": {}
+    }
+  ],
+  "json_path": "docs/results/bench/20261126T175404Z.json",
+  "markdown_path": "docs/benchmarks.md",
+  "adr_path": "docs/adr/ADR-004-hardware-tier.md"
+}

@@ -1,6 +1,6 @@
 # Three-minute demo
 
-Wear headphones. `TURNWISE_AUDIO_RETAIN` stays false. Open `http://127.0.0.1:8000/` after `uv run python -m server` or compose.
+Wear headphones. `TURNWISE_AUDIO_RETAIN` stays false. Open `http://127.0.0.1:8000/` after `uv run python -m server` or compose. Default TTS is silence. To hear Piper: `uv sync --extra tts`, `python scripts/download_models.py`, `TURNWISE_TTS_BACKEND=piper`.
 
 Each beat has a spoken caller line and an on-screen check. Stub ASR may not match the spoken words; the check is still what a human looks at.
 

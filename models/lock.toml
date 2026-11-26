@@ -11,3 +11,21 @@ sha256 = "f6f4407b41e05e277e7f5cfd9b9ae957b1dfe763c6076a934734c0b448e09b31"
 url = "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx"
 version = ""
 note = "Hashed from models/weights/silero_vad.onnx on this host, 2204103 bytes, same size as docs/results/phase2.md. Benchmarks.md does not pin Zipformer, Whisper, LLM, or TTS."
+
+[[model]]
+name = "piper_en_US_amy_low_onnx"
+path = "models/weights/piper/en_US-amy-low.onnx"
+sha256 = "a5a91abb7de0f104358a25aded480ddacf1ff0762886325886ec406a2e86aab3"
+url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/low/en_US-amy-low.onnx?download=true"
+timeout_s = 300
+version = "en_US-amy-low"
+note = "Hashed from models/weights/piper/en_US-amy-low.onnx on this host, 63104526 bytes. CPU Piper voice (rhasspy/piper-voices). CI does not download this file."
+
+[[model]]
+name = "piper_en_US_amy_low_json"
+path = "models/weights/piper/en_US-amy-low.onnx.json"
+sha256 = "2250a9a605b8dc35a116717fadc5056695dd809e34a15d02f72a0f52d53d3ebb"
+url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/low/en_US-amy-low.onnx.json?download=true"
+timeout_s = 60
+version = "en_US-amy-low"
+note = "Hashed from models/weights/piper/en_US-amy-low.onnx.json on this host, 4164 bytes. Piper voice config beside the ONNX."

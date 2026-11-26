@@ -74,7 +74,9 @@ Environment prefix `TURNWISE_`. Types are Python types on `Settings`. STARTING P
 | `paraphrase_max_chars` | int | 180 | Discard above | 6 T6.3.4 |
 | `faq_min_score` | float | 0.2 STARTING POINT | Token overlap | 6 T6.3.3 |
 | `urgent_keywords` | str | see T6.6.1 | Substring list | 6 T6.6.1 |
-| `tts_backend` | str | empty until ADR-010 | kokoro or piper | 7 T7.4.4 |
+| `tts_backend` | str | empty (silence stub) | `piper` after download; kokoro unpinned | 7 T7.4.4 |
+| `tts_piper_onnx_path` | str | `models/weights/piper/en_US-amy-low.onnx` | CPU Piper ONNX | 7 T7.4.4 |
+| `tts_piper_config_path` | str | `models/weights/piper/en_US-amy-low.onnx.json` | Piper voice JSON | 7 T7.4.4 |
 | `tts_voice` | str | `default` | Voice id | 7 T7.4.1 |
 | `tts_speed` | float | 1.0 | Default rate | 7 T7.3.2 |
 | `tts_digit_speed` | float | 0.85 STARTING POINT | Digit readback | 7 T7.3.2 |
@@ -406,7 +408,7 @@ License strings are copied from the source in the cited task. This table is the 
 | 007 | Turn model | 4 T4.2.4 | Enable or silence-only |
 | 008 | NLU latency miss | 5 if 30 ms missed | Matcher stay or miss |
 | 009 | FAQ overlap | 6 T6.3.3 | Token overlap baseline |
-| 010 | TTS device | 7 T7.4.4 | CPU default |
+| 010 | TTS device | 7 T7.4.4 | CPU; Piper named from first-chunk JSON |
 | 011 | Emotion default-off | 8 T8.4.3 | Flag false until ECE |
 | 012 | Eval clocks | 9 T9.4.3 | What may be quoted |
 | 013 | GPU contention | 10 T10.2.5 | A/B/C from p95 |

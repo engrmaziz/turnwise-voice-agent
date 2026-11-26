@@ -50,13 +50,23 @@ def download_one(row: dict[str, object], *, required: bool) -> str:
     if not url:
         raise LockError(f"{name} missing url")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(url, timeout=60) as response:
+    timeout_s = _timeout_s(row)
+    request = urllib.request.Request(url, headers={"User-Agent": "turnwise-download/0.1"})
+    with urllib.request.urlopen(request, timeout=timeout_s) as response:
         payload = response.read()
     digest = sha256_bytes(payload)
     if digest != expected:
         raise LockError(f"hash mismatch for {name}: got {digest} expected {expected}")
     dest.write_bytes(payload)
     return f"ok:{name}:downloaded"
+
+
+def _timeout_s(row: dict[str, object]) -> int:
+    raw = row.get("timeout_s", 60)
+    if isinstance(raw, bool) or not isinstance(raw, int | float):
+        return 60
+    timeout = int(raw)
+    return timeout if timeout > 0 else 60
 
 
 def run(lock_path: Path, *, required: bool) -> list[str]:

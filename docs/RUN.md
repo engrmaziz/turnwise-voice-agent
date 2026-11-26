@@ -5,16 +5,16 @@ Python 3.11+, [uv](https://docs.astral.sh/uv/), optional Docker for the observab
 ## Local process
 
 ```bash
-uv sync --all-groups
+uv sync --all-groups --extra tts
 uv run python scripts/download_silero_vad.py
 uv run python scripts/download_models.py
 uv run pytest
 uv run python -m server
 ```
 
-`scripts/download_models.py` reads `models/lock.toml`. A sha256 mismatch exits 1. Empty hashes skip unless you pass `--required`. Default `--required` is false so CI stays weight-free.
+`scripts/download_models.py` reads `models/lock.toml`. A sha256 mismatch exits 1. Empty hashes skip unless you pass `--required`. Default `--required` is false so CI stays weight-free. The Piper extra (`uv sync --extra tts`) is optional; CI does not install it. After the voice files land, set `TURNWISE_TTS_BACKEND=piper` to leave the silence stub. Default `tts_backend` stays empty.
 
-`GET http://127.0.0.1:8000/health` is 200 even when ASR/TTS/LLM weights are missing. The JSON then has `degraded_asr`, `degraded_tts`, and `degraded_llm` true.
+`GET http://127.0.0.1:8000/health` is 200 even when ASR/TTS/LLM weights are missing. The JSON then has `degraded_asr`, `degraded_tts`, and `degraded_llm` true. `tts_backend=piper` with a missing ONNX is still 200 and `degraded_tts` true.
 
 `TURNWISE_AUDIO_RETAIN` defaults false. Do not flip it on for a demo recording and leave it on. Compose must not set it to true.
 

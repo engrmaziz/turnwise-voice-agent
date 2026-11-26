@@ -7,10 +7,12 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field
 
+from pipeline.audio.format import resample_mono_pcm16
 from server.config import Settings
 
 _LOG = structlog.get_logger("models.tts_pool")
@@ -94,6 +96,51 @@ class TtsPool:
             _owns_executor=True,
         )
 
+    @classmethod
+    def piper(
+        cls,
+        *,
+        onnx_path: Path,
+        config_path: Path | None,
+        timeout_ms: int,
+        output_hz: int,
+    ) -> TtsPool:
+        """CPU Piper. Import and ONNX load happen here, not at module import."""
+        from piper import PiperVoice, SynthesisConfig
+
+        voice = PiperVoice.load(
+            str(onnx_path),
+            config_path=str(config_path) if config_path is not None else None,
+            use_cuda=False,
+        )
+        src_hz = int(voice.config.sample_rate)
+        base_length = float(voice.config.length_scale)
+
+        def synth_sync(text: str, _voice: str, speed: float) -> bytes:
+            stripped = text.strip()
+            if not stripped:
+                raise TtsError("empty pcm")
+            length_scale = None if abs(speed - 1.0) < 1e-6 else base_length / max(speed, 0.01)
+            syn_config = SynthesisConfig(length_scale=length_scale)
+            chunks = list(voice.synthesize(stripped, syn_config=syn_config))
+            if not chunks:
+                raise TtsError("empty pcm")
+            raw = b"".join(chunk.audio_int16_bytes for chunk in chunks)
+            if not raw:
+                raise TtsError("empty pcm")
+            rate = int(chunks[0].sample_rate) if chunks[0].sample_rate else src_hz
+            return resample_mono_pcm16(raw, rate, output_hz)
+
+        return cls(
+            timeout_s=timeout_ms / 1000.0,
+            synth_sync=synth_sync,
+            available=True,
+            model_name=f"piper:{onnx_path.name}",
+            sample_rate_hz=output_hz,
+            _executor=ThreadPoolExecutor(max_workers=1, thread_name_prefix="tts-piper"),
+            _owns_executor=True,
+        )
+
     async def synthesize(
         self,
         job: TtsJob,
@@ -105,6 +152,7 @@ class TtsPool:
         stamped = job.generation
         loop = asyncio.get_running_loop()
         executor = self._executor
+        started = time.perf_counter()
         try:
             pcm = await asyncio.wait_for(
                 loop.run_in_executor(
@@ -119,11 +167,17 @@ class TtsPool:
         except TimeoutError as exc:
             _LOG.warning("tts_timeout", timeout_s=self.timeout_s)
             raise TtsTimeoutError("tts timeout") from exc
+        latency_ms = (time.perf_counter() - started) * 1000.0
         if live() != stamped:
             return None
         if not pcm:
             raise TtsError("empty pcm")
-        return TtsResult(pcm=pcm, generation=stamped, cache_hit=False, latency_ms=0.0)
+        return TtsResult(
+            pcm=pcm,
+            generation=stamped,
+            cache_hit=False,
+            latency_ms=latency_ms,
+        )
 
     def close(self) -> None:
         if self._owns_executor and self._executor is not None:
@@ -138,4 +192,31 @@ def load_tts_pool(settings: Settings) -> TtsPool:
             timeout_ms=settings.tts_timeout_ms,
             frame_bytes=settings.tts_pcm_bytes,
         )
+    if backend == "piper":
+        return _load_piper(settings)
     return TtsPool.unavailable(timeout_ms=settings.tts_timeout_ms)
+
+
+def _load_piper(settings: Settings) -> TtsPool:
+    onnx = Path(settings.tts_piper_onnx_path)
+    config_raw = settings.tts_piper_config_path.strip()
+    config_path = Path(config_raw) if config_raw else None
+    if not onnx.is_file():
+        _LOG.warning("tts_piper_missing_onnx", path=str(onnx))
+        return TtsPool.unavailable(timeout_ms=settings.tts_timeout_ms)
+    if config_path is not None and not config_path.is_file():
+        _LOG.warning("tts_piper_missing_config", path=str(config_path))
+        return TtsPool.unavailable(timeout_ms=settings.tts_timeout_ms)
+    try:
+        return TtsPool.piper(
+            onnx_path=onnx,
+            config_path=config_path,
+            timeout_ms=settings.tts_timeout_ms,
+            output_hz=settings.ws_sample_rate_hz,
+        )
+    except ImportError:
+        _LOG.warning("tts_piper_import_failed")
+        return TtsPool.unavailable(timeout_ms=settings.tts_timeout_ms)
+    except (OSError, ValueError, RuntimeError) as exc:
+        _LOG.warning("tts_piper_load_failed", error=str(exc), path=str(onnx))
+        return TtsPool.unavailable(timeout_ms=settings.tts_timeout_ms)

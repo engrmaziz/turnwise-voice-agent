@@ -1,7 +1,7 @@
 # ADR-004: Hardware tier
 
 - Status: Proposed
-- Date: 2026-11-25
+- Date: 2026-11-26
 
 ## Context
 
@@ -9,11 +9,11 @@ ADR-003 keeps the model stack Proposed until a bench on this machine records ASR
 
 Host: `Windows-10-10.0.26300-SP0`
 Python: `3.11.9`
-JSON: `docs/results/bench/20261125T194836Z.json`
+JSON: `docs/results/bench/20261126T175404Z.json`
 
 ## Decision
 
-The hardware tier is **blocked**. Missing measured rows: ASR finalize, LLM TTFT, TTS first-chunk CPU. ADR-003 stays Proposed. The next bench that fills those rows rewrites this ADR from the new JSON.
+The hardware tier is **blocked**. Missing measured rows: ASR finalize, LLM TTFT. ADR-003 stays Proposed. The next bench that fills those rows rewrites this ADR from the new JSON.
 
 ## Consequences
 
