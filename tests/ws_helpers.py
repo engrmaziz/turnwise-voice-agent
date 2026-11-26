@@ -2,6 +2,7 @@
 
 import math
 import struct
+from collections.abc import Callable
 
 from server.config import Settings
 from server.transport import AudioHello, encode_hello, encode_pcm
@@ -36,6 +37,12 @@ def tone_pcm(frame_index: int, *, samples: int = 320, rate: int = 16000) -> byte
         t = (start + i) / rate
         out.append(int(32767 * 0.2 * math.sin(2.0 * math.pi * 440.0 * t)))
     return struct.pack(f"<{samples}h", *out)
+
+
+def receive_until_disconnect(receive_bytes: Callable[[], bytes]) -> None:
+    """Greeting PCM may arrive before a protocol close. Drain until disconnect."""
+    while True:
+        receive_bytes()
 
 
 def pcm_message(frame_index: int, settings: Settings | None = None) -> bytes:

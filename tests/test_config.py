@@ -47,6 +47,12 @@ def test_default_backchannel_list_excludes_yes() -> None:
     assert settings.regex_slots_enabled is False
     assert settings.repair_handoff_after == 3
     assert settings.tool_filler_after_ms == 300
+    assert settings.tts_backend == ""
+    assert settings.tts_voice == "default"
+    assert settings.tts_digit_speed == 0.85
+    assert settings.tts_frame_ms == 20
+    assert settings.tts_first_chunk_min_words == 4
+    assert settings.tts_timeout_ms == 800
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:

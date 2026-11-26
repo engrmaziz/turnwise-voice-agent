@@ -18,6 +18,16 @@ def counter_value(counter: Counter, **labels: str) -> float:
     return found
 
 
+def histogram_sum(histogram: Histogram, **labels: str) -> float:
+    for family in histogram.collect():
+        for sample in family.samples:
+            if not sample.name.endswith("_sum"):
+                continue
+            if all(sample.labels.get(key) == value for key, value in labels.items()):
+                return float(sample.value)
+    return 0.0
+
+
 def histogram_count(histogram: Histogram, **labels: str) -> float:
     for family in histogram.collect():
         for sample in family.samples:

@@ -115,6 +115,20 @@ class Settings(BaseSettings):
     faq_path: str = "data/faq.md"
     calendar_db_path: str = "data/turnwise.sqlite"
     llm_timeout_ms: int = 2000
+    tts_backend: str = ""
+    tts_voice: str = "default"
+    tts_speed: float = 1.0
+    tts_digit_speed: float = 0.85
+    tts_frame_ms: int = 20
+    tts_first_chunk_min_words: int = 4
+    tts_later_min_words: int = 8
+    tts_max_hold_ms: int = 400
+    tts_timeout_ms: int = 800
+    tts_abbrev: str = "dr.,mr.,mrs.,ms.,st.,e.g.,i.e.,p.m.,a.m."
+    tts_warmup_phrases: str = (
+        "greeting,one_moment,could_you_repeat,headphones_required,"
+        "seek_emergency,cannot_book_now,cannot_speak,goodbye"
+    )
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -180,6 +194,10 @@ class Settings(BaseSettings):
         "tool_retry_limit",
         "paraphrase_max_chars",
         "llm_timeout_ms",
+        "tts_first_chunk_min_words",
+        "tts_later_min_words",
+        "tts_max_hold_ms",
+        "tts_timeout_ms",
     )
     @classmethod
     def at_least_one(cls, value: int) -> int:
@@ -202,11 +220,11 @@ class Settings(BaseSettings):
             raise ValueError("ws_sample_rate_hz must be 16000 in this milestone")
         return value
 
-    @field_validator("ws_frame_ms")
+    @field_validator("ws_frame_ms", "tts_frame_ms")
     @classmethod
     def twenty_or_forty(cls, value: int) -> int:
         if value not in {20, 40}:
-            raise ValueError("ws_frame_ms must be 20 or 40")
+            raise ValueError("frame_ms must be 20 or 40")
         return value
 
     @field_validator(
@@ -246,6 +264,13 @@ class Settings(BaseSettings):
             raise ValueError("value must be >= 0")
         return value
 
+    @field_validator("tts_speed", "tts_digit_speed")
+    @classmethod
+    def positive_speed(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError("speed must be > 0")
+        return value
+
     @field_validator("clinic_timezone")
     @classmethod
     def known_timezone(cls, value: str) -> str:
@@ -264,6 +289,9 @@ class Settings(BaseSettings):
         "asr_stub_transcript",
         "faq_path",
         "calendar_db_path",
+        "tts_voice",
+        "tts_abbrev",
+        "tts_warmup_phrases",
     )
     @classmethod
     def named_non_empty(cls, value: str) -> str:
@@ -278,6 +306,14 @@ class Settings(BaseSettings):
         stripped = value.strip()
         if stripped not in {"", "stub", "zipformer", "whisper_la2"}:
             raise ValueError("asr_backend must be empty, stub, zipformer, or whisper_la2")
+        return stripped
+
+    @field_validator("tts_backend")
+    @classmethod
+    def known_tts_backend(cls, value: str) -> str:
+        stripped = value.strip()
+        if stripped not in {"", "stub", "piper", "kokoro"}:
+            raise ValueError("tts_backend must be empty, stub, piper, or kokoro")
         return stripped
 
     @field_validator("ws_allowed_sample_rates")
@@ -314,6 +350,24 @@ class Settings(BaseSettings):
     @property
     def backchannel_list(self) -> tuple[str, ...]:
         return tuple(part.strip() for part in self.backchannel_phrases.split(",") if part.strip())
+
+    @property
+    def tts_abbrev_set(self) -> frozenset[str]:
+        return frozenset(
+            part.strip().casefold() for part in self.tts_abbrev.split(",") if part.strip()
+        )
+
+    @property
+    def tts_warmup_list(self) -> tuple[str, ...]:
+        return tuple(part.strip() for part in self.tts_warmup_phrases.split(",") if part.strip())
+
+    @property
+    def tts_frame_samples(self) -> int:
+        return self.ws_sample_rate_hz * self.tts_frame_ms // 1000
+
+    @property
+    def tts_pcm_bytes(self) -> int:
+        return self.tts_frame_samples * 2
 
 
 @lru_cache(maxsize=1)

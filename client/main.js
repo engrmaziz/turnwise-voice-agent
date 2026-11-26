@@ -17,6 +17,7 @@
   let mediaStream = null;
   let frameIndex = 0;
   let pending = new Float32Array(0);
+  let playTime = 0;
 
   function log(line) {
     logEl.textContent += line + "\n";
@@ -46,10 +47,13 @@
     return out;
   }
 
-  function encodeAck(index) {
-    const out = new Uint8Array(5);
+  function encodeAck(index, stream) {
+    const json = JSON.stringify({ stream: stream || "play", frame_index: index });
+    const payload = new TextEncoder().encode(json);
+    const out = new Uint8Array(5 + payload.length);
     out[0] = 0x03;
-    new DataView(out.buffer).setUint32(1, index, true);
+    new DataView(out.buffer).setUint32(1, payload.length, true);
+    out.set(payload, 5);
     return out;
   }
 
@@ -75,6 +79,22 @@
       out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
     }
     return out;
+  }
+
+  function playPcm16(int16) {
+    if (!audioCtx || int16.length === 0) return;
+    const buf = audioCtx.createBuffer(1, int16.length, DST_RATE);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < int16.length; i += 1) {
+      ch[i] = int16[i] / 32768;
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+    if (playTime < now) playTime = now;
+    src.start(playTime);
+    playTime += buf.duration;
   }
 
   function concat(a, b) {
@@ -118,7 +138,13 @@
       const data = new Uint8Array(ev.data);
       if (data.length >= 5 && data[0] === 0x02) {
         const idx = new DataView(data.buffer, data.byteOffset + 1, 4).getUint32(0, true);
-        socket.send(encodeAck(idx));
+        const pcm = new Int16Array(
+          data.buffer,
+          data.byteOffset + 5,
+          Math.floor((data.length - 5) / 2)
+        );
+        playPcm16(pcm);
+        socket.send(encodeAck(idx, "play"));
       }
     };
 
@@ -173,6 +199,7 @@
     if (mediaStream) mediaStream.getTracks().forEach((t) => t.stop());
     mediaStream = null;
     pending = new Float32Array(0);
+    playTime = 0;
     startBtn.disabled = false;
     stopBtn.disabled = true;
     log("stopped at frame " + frameIndex);

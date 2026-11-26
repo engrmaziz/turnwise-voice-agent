@@ -93,6 +93,15 @@ class StageMetrics:
     tool_filler: Counter
     tool_retries: Counter
     urgent_keyword: Counter
+    planner_paraphrase_discard: Counter
+    chunk_flush: Counter
+    tn_seconds: Histogram
+    tn_unknown_char: Counter
+    tts_first_chunk: Histogram
+    tts_cache_hits: Counter
+    tts_cache_misses: Counter
+    tts_cache_miss_warmup: Counter
+    play_ack_wrong_stream: Counter
 
 
 def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
@@ -426,9 +435,80 @@ def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
             "Utterances that matched the deterministic urgent keyword list.",
             registry=registry,
         ),
+        planner_paraphrase_discard=Counter(
+            "turnwise_planner_paraphrase_discard",
+            "Paraphrases discarded before TTS.",
+            labelnames=("reason",),
+            registry=registry,
+        ),
+        chunk_flush=Counter(
+            "turnwise_chunk_flush",
+            "Chunker flushes by reason.",
+            labelnames=("reason",),
+            registry=registry,
+        ),
+        tn_seconds=Histogram(
+            "turnwise_tn_seconds",
+            "TTS text-normalization wall time.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        tn_unknown_char=Counter(
+            "turnwise_tn_unknown_char",
+            "Name characters spoken as symbol.",
+            registry=registry,
+        ),
+        tts_first_chunk=Histogram(
+            "turnwise_tts_first_chunk_seconds",
+            "TTS first-chunk wall time including cache lookup.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        tts_cache_hits=Counter(
+            "turnwise_tts_cache_hits",
+            "Phrase-cache hits that skipped the TTS pool.",
+            registry=registry,
+        ),
+        tts_cache_misses=Counter(
+            "turnwise_tts_cache_misses",
+            "Phrase-cache misses that called the TTS pool.",
+            registry=registry,
+        ),
+        tts_cache_miss_warmup=Counter(
+            "turnwise_tts_cache_miss_warmup",
+            "Runtime misses on phrases that should have been warmed at start.",
+            registry=registry,
+        ),
+        play_ack_wrong_stream=Counter(
+            "turnwise_play_ack_wrong_stream",
+            "Play-ack messages whose stream field was cap, not play.",
+            registry=registry,
+        ),
     )
 
 
 def observe_response_gap(metrics: StageMetrics, turn_end_ts: float, first_audio_ts: float) -> None:
     """Record first outbound write minus TURN_END. Both clocks are monotonic."""
     metrics.response_gap.observe(max(0.0, first_audio_ts - turn_end_ts))
+
+
+def observe_ttfa(
+    metrics: StageMetrics,
+    turn_end_ts: float,
+    ack_ts: float,
+    *,
+    filler: int,
+    saw_any: bool,
+    saw_content: bool,
+) -> tuple[bool, bool]:
+    """Observe play-ack TTFA. Filler counts for ttfa only. Content counts for both."""
+    delta = max(0.0, ack_ts - turn_end_ts)
+    any_seen = saw_any
+    content_seen = saw_content
+    if not any_seen:
+        metrics.ttfa.observe(delta)
+        any_seen = True
+    if filler == 0 and not content_seen:
+        metrics.ttfa_content.observe(delta)
+        content_seen = True
+    return any_seen, content_seen

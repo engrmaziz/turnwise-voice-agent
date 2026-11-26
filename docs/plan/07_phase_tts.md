@@ -72,9 +72,9 @@ Demo-able outcome: a book confirmation speaks the template when the stub paraphr
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T7.1.1 | Template catalog keyed by action and slot | `dialogue/templates.py`, `dialogue/templates.toml` | T6.2.1 | 4 | forward | `tests/test_templates.py` every FSM action used in appendix C has a template. Missing key fails startup |
-| T7.1.2 | Planner fills slots with confirmed values only | `dialogue/planner.py` | T7.1.1, T6.2.3 | 4 | forward | A pending slot is rendered as empty and the template chooses the "ask" variant. Confirmed phone is passed to TN, not spoken raw in the planner |
-| T7.1.3 | Optional paraphrase, cap already 180, plus a slot-presence check | `dialogue/planner.py` | T7.1.2, T6.3.4 | 3 | forward | `tests/test_paraphrase_slots.py` discards paraphrase that drops the doctor id that the template contained. The spoken string then equals the template |
+| T7.1.1 | Template catalog keyed by action and slot | `dialogue/templates.py`, `dialogue/templates.toml` | T6.2.1 | 4 | done | `tests/test_templates.py` every FSM action used in appendix C has a template. Missing key fails startup |
+| T7.1.2 | Planner fills slots with confirmed values only | `dialogue/planner.py` | T7.1.1, T6.2.3 | 4 | done | A pending slot is rendered as empty and the template chooses the "ask" variant. Confirmed phone is passed to TN, not spoken raw in the planner |
+| T7.1.3 | Optional paraphrase, cap already 180, plus a slot-presence check | `dialogue/planner.py` | T7.1.2, T6.3.4 | 3 | done | `tests/test_paraphrase_slots.py` discards paraphrase that drops the doctor id that the template contained. The spoken string then equals the template |
 
 Implementation notes. The planner is deterministic once the paraphrase is discarded. The slot-presence check is a set inclusion of required surface forms after TN, not a semantic compare. If the template said "Doctor Khan" and the paraphrase says "the cardiologist", the check fails and the template wins. That is intentional: the confirmation must speak the catalog name.
 
@@ -91,9 +91,9 @@ Demo-able outcome: "Dr. Khan can see you Wednesday at three p.m." yields a first
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T7.2.1 | Chunker with abbreviation set | `nlp/chunker.py` | T7.1.2 | 4 | forward | `tests/test_chunker.py` does not split on `Dr.`, `Mr.`, `Mrs.`, `Ms.`, `St.`, `e.g.`, `i.e.`, `p.m.`, `a.m.` |
-| T7.2.2 | First-chunk min words 4, later 8, sentence end always eligible | `nlp/chunker.py` | T7.2.1 | 3 | forward | A 4-word clause ending in a comma flushes when `first_chunk` is true and does not when it is false |
-| T7.2.3 | Max-hold flush | `pipeline/stages/chunker.py` | T7.2.2 | 3 | forward | A buffer with no boundary for `tts_max_hold_ms` 400 flushes a safe prefix of whole words. A test with a 20-word clause and a fake clock advances 400 ms and sees a flush |
+| T7.2.1 | Chunker with abbreviation set | `nlp/chunker.py` | T7.1.2 | 4 | done | `tests/test_chunker.py` does not split on `Dr.`, `Mr.`, `Mrs.`, `Ms.`, `St.`, `e.g.`, `i.e.`, `p.m.`, `a.m.` |
+| T7.2.2 | First-chunk min words 4, later 8, sentence end always eligible | `nlp/chunker.py` | T7.2.1 | 3 | done | A 4-word clause ending in a comma flushes when `first_chunk` is true and does not when it is false |
+| T7.2.3 | Max-hold flush | `pipeline/stages/chunker.py` | T7.2.2 | 3 | done | A buffer with no boundary for `tts_max_hold_ms` 400 flushes a safe prefix of whole words. A test with a 20-word clause and a fake clock advances 400 ms and sees a flush |
 
 Implementation notes. The abbreviation set is a setting `tts_abbrev` default the nine tokens above, compared casefold on the last token of the candidate. A max-hold flush never splits a token. If the buffer is a single 30-character token, it still flushes at hold because waiting forever is worse. Digit strings are one token if they have no spaces, so a phone number does not flush one digit at a time on hold.
 
@@ -110,9 +110,9 @@ Demo-able outcome: `14:30` becomes "two thirty p.m.", `5550100` becomes grouped 
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T7.3.1 | TN rules for time, phone, title | `nlp/tn.py` | T7.2.1 | 5 | forward | `tests/test_tn.py` table: `14:30` → a string containing "two" and "thirty" and "p.m." or "pm" as configured. Phone `5550100` is seven spoken digits. `Dr. Khan` starts with "Doctor" |
-| T7.3.2 | Digit mode slows `speed` to `tts_digit_speed` | `pipeline/stages/tts_norm.py` | T7.3.1 | 2 | forward | The `TtsJob.speed` is 0.85 STARTING POINT when `digit_mode` is true and 1.0 otherwise |
-| T7.3.3 | Confirmation pause marker | `nlp/tn.py` | T7.3.1 | 2 | forward | A confirm context inserts a break token the TTS backend documents. If the backend has no break, the normalizer inserts a comma. The test snapshots the string, not the audio |
+| T7.3.1 | TN rules for time, phone, title | `nlp/tn.py` | T7.2.1 | 5 | done | `tests/test_tn.py` table: `14:30` → a string containing "two" and "thirty" and "p.m." or "pm" as configured. Phone `5550100` is seven spoken digits. `Dr. Khan` starts with "Doctor" |
+| T7.3.2 | Digit mode slows `speed` to `tts_digit_speed` | `pipeline/stages/tts_norm.py` | T7.3.1 | 2 | done | The `TtsJob.speed` is 0.85 STARTING POINT when `digit_mode` is true and 1.0 otherwise |
+| T7.3.3 | Confirmation pause marker | `nlp/tn.py` | T7.3.1 | 2 | done | A confirm context inserts a break token the TTS backend documents. If the backend has no break, the normalizer inserts a comma. The test snapshots the string, not the audio |
 
 Implementation notes. TN is the inverse of ITN and is a different module. Sharing NeMo is allowed if T3.4.1 imported it. If NeMo did not import, the rule table in `nlp/tn.py` is the production path, same as ITN's fallback. Year-guess dates are spoken as month, ordinal day, and year, never as ISO. Spelling a name uses letter-by-letter English letter names. The flag `spell_name` is true when the slot `patient_name` was explicit-confirmed (T6.2.1) on this turn.
 
@@ -129,11 +129,11 @@ Demo-able outcome: the greeting's TTS span has `cache=hit` and `latency_ms` unde
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T7.4.1 | TTS pool, generation drop, timeout | `models/tts_pool.py` | T1.4.4, T3.1.1 | 6 | forward | `tests/test_tts_pool.py` drops PCM stamped generation 0 after barge-in. Timeout 800 ms returns an error the out stage treats as the cached `cannot_speak` phrase if present, else session close |
-| T7.4.2 | Pack PCM into `tts_frame_ms` frames and send `0x02` play stream | `pipeline/stages/audio_out.py`, `server/playback.py` | T7.4.1, T4.3.3 | 5 | forward | `tests/test_audio_out_frames.py` 320-sample frames at 20 ms. Play acks use `stream=play`. Capture indexes are not compared to play indexes |
-| T7.4.3 | Warmup cache at startup for the phrase list | `models/tts_cache.py` | T7.4.1 | 4 | forward | List: greeting, `one_moment`, `could_you_repeat`, `headphones_required`, `seek_emergency`, `cannot_book_now`, `cannot_speak`, `goodbye`. `tests/test_tts_cache.py` second lookup does not call the pool |
-| T7.4.4 | Measure first-chunk p50 on CPU and on GPU if present | `evals/bench/tts.py` (extend T1.4.4), `docs/adr/ADR-010-tts-device.md` | T7.4.3, T1.4.4 | 4 | forward | ADR-010 picks CPU if CPU p50 is ≤ 200 ms TARGET. If CPU misses and GPU hits, GPU is allowed only if M10.2 has not yet shown a P95 break. Until M10.2, CPU is the default even if slower, and the miss is recorded |
-| T7.4.5 | Observe TTFA histograms on play-ack | `pipeline/stages/audio_out.py` | T7.4.2, T6.5.2 | 3 | forward | `tests/test_ttfa_observe.py` a filler then content produces two different samples. A content-only turn produces two equal samples. Count is no longer 0 |
+| T7.4.1 | TTS pool, generation drop, timeout | `models/tts_pool.py` | T1.4.4, T3.1.1 | 6 | done | `tests/test_tts_pool.py` drops PCM stamped generation 0 after barge-in. Timeout 800 ms returns an error the out stage treats as the cached `cannot_speak` phrase if present, else session close |
+| T7.4.2 | Pack PCM into `tts_frame_ms` frames and send `0x02` play stream | `pipeline/stages/audio_out.py`, `server/playback.py` | T7.4.1, T4.3.3 | 5 | done | `tests/test_audio_out_frames.py` 320-sample frames at 20 ms. Play acks use `stream=play`. Capture indexes are not compared to play indexes |
+| T7.4.3 | Warmup cache at startup for the phrase list | `models/tts_cache.py` | T7.4.1 | 4 | done | List: greeting, `one_moment`, `could_you_repeat`, `headphones_required`, `seek_emergency`, `cannot_book_now`, `cannot_speak`, `goodbye`. `tests/test_tts_cache.py` second lookup does not call the pool |
+| T7.4.4 | Measure first-chunk p50 on CPU and on GPU if present | `evals/bench/tts.py` (extend T1.4.4), `docs/adr/ADR-010-tts-device.md` | T7.4.3, T1.4.4 | 4 | done | ADR-010 picks CPU if CPU p50 is ≤ 200 ms TARGET. If CPU misses and GPU hits, GPU is allowed only if M10.2 has not yet shown a P95 break. Until M10.2, CPU is the default even if slower, and the miss is recorded |
+| T7.4.5 | Observe TTFA histograms on play-ack | `pipeline/stages/audio_out.py` | T7.4.2, T6.5.2 | 3 | done | `tests/test_ttfa_observe.py` a filler then content produces two different samples. A content-only turn produces two equal samples. Count is no longer 0 |
 
 Implementation notes. Default device is CPU because the 8 GB tier in the front matter pins TTS to CPU to leave the GPU for the LLM. T7.4.4 is not allowed to flip that default on a single-call bench. M10.2 is the contention measurement. Phrase cache is in memory, process-local, rebuilt at start. It is not Redis. A cache miss on a warmup phrase at runtime increments `turnwise_tts_cache_miss_warmup_total` because that means startup failed to fill the cache.
 
@@ -179,14 +179,14 @@ ADR-010 TTS device. Update `docs/ARCHITECTURE.md` to say TTFA histograms are obs
 
 ## 7.9 Exit criteria and phase gate
 
-- [ ] Every FSM action has a template.
-- [ ] Paraphrase cannot drop a catalog name.
-- [ ] "Dr." and "p.m." do not split.
-- [ ] TN table passes without an LLM import.
-- [ ] Cache hits skip the pool.
-- [ ] Play and capture clocks are separate.
-- [ ] TTFA and TTFA-content observe in a unit test.
-- [ ] ADR-010 names a device.
+- [x] Every FSM action has a template.
+- [x] Paraphrase cannot drop a catalog name.
+- [x] "Dr." and "p.m." do not split.
+- [x] TN table passes without an LLM import.
+- [x] Cache hits skip the pool.
+- [x] Play and capture clocks are separate.
+- [x] TTFA and TTFA-content observe in a unit test.
+- [x] ADR-010 names a device.
 
 ## 7.10 Portfolio artifacts
 

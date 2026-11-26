@@ -2,7 +2,7 @@
 
 Every row is a target. None of these have been measured on a call. The only latency number this repo has actually run is the in-process stage hop in `docs/ARCHITECTURE.md`.
 
-`turnwise_ttfa_seconds` and `turnwise_ttfa_content_seconds` are registered at process start and are not observed by any stage yet. A histogram count of 0 is expected.
+`turnwise_ttfa_seconds` and `turnwise_ttfa_content_seconds` observe on the client's play-ack (`tests/test_ttfa_observe.py`). A `/metrics` scrape with no play-ack still has count 0. Product P50/P95 remain unmet.
 
 ## Gates
 

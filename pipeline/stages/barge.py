@@ -57,6 +57,9 @@ class BargeHandler:
         self._fired = False
         self.hits = 0
 
+    def set_forward(self, forward: Forward) -> None:
+        self._forward = forward
+
     async def __call__(self, event: Event) -> None:
         if event.kind is EventKind.PARTIAL:
             spoken = event.payload.get("spoken")

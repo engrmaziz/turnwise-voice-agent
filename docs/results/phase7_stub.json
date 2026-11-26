@@ -1,0 +1,12 @@
+{
+  "host": "in-process stub",
+  "samples": 20,
+  "cache_hit_p50_ms": 0.0038,
+  "cache_hit_p95_ms": 0.0106,
+  "stub_first_chunk_p50_ms": 0.1145,
+  "stub_first_chunk_p95_ms": 0.2414,
+  "first_chunk_text": "Dr. Khan can see you,",
+  "full_sentence": "Dr. Khan can see you, Wednesday at three p.m. Please arrive ten minutes early.",
+  "kokoro_piper": "blocked",
+  "success": true
+}

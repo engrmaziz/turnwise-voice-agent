@@ -54,6 +54,7 @@ class PcmMessage:
 @dataclass(slots=True, frozen=True)
 class AckMessage:
     frame_index: int
+    stream: str = "play"
 
 
 @dataclass(slots=True, frozen=True)
@@ -99,10 +100,16 @@ def encode_pcm(frame_index: int, pcm16: bytes) -> bytes:
     return bytes([MsgType.PCM]) + frame_index.to_bytes(4, "little") + pcm16
 
 
-def encode_ack(frame_index: int) -> bytes:
+def encode_ack(frame_index: int, stream: str = "play") -> bytes:
     if frame_index < 0:
         raise ValueError("frame_index must be >= 0")
-    return bytes([MsgType.ACK]) + frame_index.to_bytes(4, "little")
+    if stream not in {"play", "cap"}:
+        raise ValueError("stream must be play or cap")
+    payload = json.dumps(
+        {"stream": stream, "frame_index": frame_index},
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return bytes([MsgType.ACK]) + len(payload).to_bytes(4, "little") + payload
 
 
 def encode_close() -> bytes:
@@ -139,6 +146,22 @@ def _parse_pcm(body: bytes, expected_pcm_bytes: int) -> PcmMessage:
 
 
 def _parse_ack(body: bytes) -> AckMessage:
-    if len(body) != 4:
+    if len(body) == 4:
+        raise ProtocolError("ack_missing_stream")
+    if len(body) < 4:
+        raise ProtocolError("ack_truncated")
+    length = int.from_bytes(body[:4], "little")
+    raw = body[4:]
+    if length != len(raw):
         raise ProtocolError("ack_length")
-    return AckMessage(frame_index=int.from_bytes(body, "little"))
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ProtocolError("ack_json") from exc
+    if not isinstance(payload, dict):
+        raise ProtocolError("ack_json")
+    stream = payload.get("stream")
+    frame = payload.get("frame_index")
+    if stream not in {"play", "cap"} or not isinstance(frame, int) or frame < 0:
+        raise ProtocolError("ack_json")
+    return AckMessage(frame_index=frame, stream=str(stream))

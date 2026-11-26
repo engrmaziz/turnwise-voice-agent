@@ -75,10 +75,12 @@ Done in Phase 6 (`docs/plan/06_phase_dialogue_tools.md`, `docs/results/phase6.md
 
 ## Phase 8 — Speech out
 
+Done in Phase 7 (`docs/plan/07_phase_tts.md`, `docs/results/phase7.md`). TTS weights blocked (`missing_tts:import_piper,import_kokoro`). ADR-010 CPU default. Stub silence of known duration. TTFA observes on play-ack in a unit test; product P50 unmet.
+
 - The chunker flushes the first clause early and does not split "Dr." or "p.m.".
 - Normalization speaks "Doctor", digit-by-digit phone numbers, and clock times. It is deterministic.
-- Cached phrases show no model time in the TTS span.
-- Client playback acks are what barge-in treats as heard.
+- Cached phrases show no model time in the TTS span (stub cache-hit p50 0.0038 ms).
+- Client playback acks are what barge-in treats as heard. Play and capture clocks are separate.
 
 ## Phase 9 — Frustration and urgency
 

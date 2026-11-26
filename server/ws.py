@@ -18,6 +18,8 @@ from models.asr_pool import AsrPool
 from models.llm_client import LlmClient
 from models.nlu_pool import NluScorer
 from models.onnx_pool import TurnScorer
+from models.tts_cache import TtsCache
+from models.tts_pool import TtsPool
 from models.vad_pool import VadEngine
 from pipeline.audio.clock import ClockError, FrameClock
 from pipeline.errors import StageBackpressureError
@@ -28,10 +30,13 @@ from pipeline.session import Session, SessionStore
 from pipeline.stage import Stage, StageConfig
 from pipeline.stages.asr import AsrHandler
 from pipeline.stages.audio_in import AudioInHandler
+from pipeline.stages.audio_out import AudioOutHandler
 from pipeline.stages.barge import BargeHandler
+from pipeline.stages.chunker import ChunkerHandler
 from pipeline.stages.dialogue import DialogueHandler
 from pipeline.stages.endpoint import EndpointHandler
 from pipeline.stages.nlu import NluHandler
+from pipeline.stages.tts_norm import TtsNormHandler
 from pipeline.stages.vad import VadHandler
 from server.config import Settings
 from server.playback import ClosedCallSnapshot, PlaybackCursor
@@ -63,6 +68,8 @@ class WsContainer(Protocol):
     turn_scorer: TurnScorer | None
     nlu_scorer: NluScorer | None
     llm_client: LlmClient | None
+    tts_pool: TtsPool | None
+    tts_cache: TtsCache | None
 
     @property
     def make_audio_handler(self) -> Callable[[], AudioInHandler]: ...
@@ -78,9 +85,13 @@ class LiveCall:
     barge_stage: Stage
     nlu_stage: Stage
     dialogue_stage: Stage
+    chunker_stage: Stage
+    tts_norm_stage: Stage
+    audio_out_stage: Stage
     handler: AudioInHandler
     vad_handler: VadHandler
     asr_handler: AsrHandler
+    audio_out_handler: AudioOutHandler
     playback: PlaybackCursor
     clock: FrameClock
     pcm_bytes: int
@@ -245,7 +256,66 @@ async def _on_hello(
         tracer=tracer,
         metrics=container.metrics,
     )
+    tts_pool = container.tts_pool
+    if tts_pool is None:
+        tts_pool = TtsPool.stub(
+            timeout_ms=settings.tts_timeout_ms,
+            frame_bytes=settings.tts_pcm_bytes,
+        )
+    tts_cache = container.tts_cache
+    if tts_cache is None:
+        tts_cache = TtsCache(warmup_ids=frozenset(settings.tts_warmup_list))
+    audio_out_handler = AudioOutHandler(
+        session=session,
+        settings=settings,
+        metrics=container.metrics,
+        pool=tts_pool,
+        cache=tts_cache,
+        playback=playback,
+        send=websocket.send_bytes,
+    )
+    audio_out_stage = Stage(
+        name="audio_out",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=audio_out_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
+    tts_norm_handler = TtsNormHandler(
+        session=session,
+        settings=settings,
+        metrics=container.metrics,
+        forward=audio_out_stage.emit,
+    )
+    tts_norm_stage = Stage(
+        name="tts_norm",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=tts_norm_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
+    chunker_handler = ChunkerHandler(
+        session=session,
+        settings=settings,
+        metrics=container.metrics,
+        forward=tts_norm_stage.emit,
+    )
+    chunker_stage = Stage(
+        name="chunker",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=chunker_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
+    dialogue_handler.set_forward(chunker_stage.emit)
     nlu_handler.set_forward(dialogue_stage.emit)
+    barge_handler.set_forward(fan_out(chunker_stage.emit, audio_out_stage.emit))
     asr_handler.set_forward(fan_out(endpoint_stage.emit, barge_stage.emit, nlu_stage.emit))
     endpoint_handler.set_forward(fan_out(asr_stage.emit, barge_stage.emit))
     vad_handler = VadHandler(
@@ -284,6 +354,9 @@ async def _on_hello(
         tracer=tracer,
         metrics=container.metrics,
     )
+    audio_out_stage.start()
+    tts_norm_stage.start()
+    chunker_stage.start()
     dialogue_stage.start()
     nlu_stage.start()
     asr_stage.start()
@@ -291,6 +364,7 @@ async def _on_hello(
     barge_stage.start()
     vad_stage.start()
     audio_stage.start()
+    await dialogue_handler.start()
     container.metrics.ws_frames.labels(direction="in").inc()
     _LOG.info(
         "ws_session_open",
@@ -308,9 +382,13 @@ async def _on_hello(
         barge_stage=barge_stage,
         nlu_stage=nlu_stage,
         dialogue_stage=dialogue_stage,
+        chunker_stage=chunker_stage,
+        tts_norm_stage=tts_norm_stage,
+        audio_out_stage=audio_out_stage,
         handler=handler,
         vad_handler=vad_handler,
         asr_handler=asr_handler,
+        audio_out_handler=audio_out_handler,
         playback=playback,
         clock=FrameClock(),
         pcm_bytes=parsed.hello.frame_samples * 2,
@@ -341,8 +419,18 @@ async def _on_pcm(container: WsContainer, call: LiveCall | None, parsed: PcmMess
 def _on_ack(container: WsContainer, call: LiveCall | None, parsed: AckMessage) -> None:
     if call is None:
         raise ProtocolError("ack_before_hello")
+    if parsed.stream != "play":
+        container.metrics.play_ack_wrong_stream.inc()
+        container.metrics.ws_frames.labels(direction="in").inc()
+        return
     if not call.playback.ack(parsed.frame_index):
         container.metrics.playback_ack_ahead.inc()
+        container.metrics.ws_frames.labels(direction="in").inc()
+        return
+    call.audio_out_handler.note_play_ack(parsed.frame_index)
+    prefix = call.playback.prefix_for_ack(parsed.frame_index)
+    if prefix:
+        call.session.played_text = prefix
     container.metrics.ws_frames.labels(direction="in").inc()
 
 
@@ -387,6 +475,9 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
         await asyncio.wait_for(call.barge_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.nlu_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.dialogue_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.chunker_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.tts_norm_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.audio_out_stage.inbox.join(), timeout=2.0)
     except TimeoutError:
         _LOG.warning("ws_teardown_join_timeout", session_id=call.session.session_id)
     except asyncio.CancelledError as exc:
@@ -409,6 +500,9 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
         call.barge_stage,
         call.nlu_stage,
         call.dialogue_stage,
+        call.chunker_stage,
+        call.tts_norm_stage,
+        call.audio_out_stage,
     ):
         try:
             await stage.aclose()

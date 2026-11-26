@@ -86,6 +86,16 @@ def test_ack_and_close() -> None:
     ack = _parse(encode_ack(4))
     assert isinstance(ack, AckMessage)
     assert ack.frame_index == 4
+    assert ack.stream == "play"
+    cap = _parse(encode_ack(4, stream="cap"))
+    assert isinstance(cap, AckMessage)
+    assert cap.stream == "cap"
     _parse(encode_close())
     with pytest.raises(ProtocolError, match="close_trailing_bytes"):
         _parse(encode_close() + b"\x00")
+
+
+def test_legacy_four_byte_ack_is_missing_stream() -> None:
+    raw = bytes([0x03]) + (4).to_bytes(4, "little")
+    with pytest.raises(ProtocolError, match="ack_missing_stream"):
+        _parse(raw)

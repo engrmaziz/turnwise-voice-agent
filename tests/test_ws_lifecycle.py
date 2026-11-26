@@ -7,7 +7,7 @@ from starlette.websockets import WebSocketDisconnect
 from server.app import create_app
 from server.config import Settings
 from server.transport import encode_close
-from tests.ws_helpers import SESSION_A, hello_bytes, pcm_message
+from tests.ws_helpers import SESSION_A, hello_bytes, pcm_message, receive_until_disconnect
 
 
 def test_session_is_gone_after_close(settings: Settings) -> None:
@@ -25,7 +25,7 @@ def test_second_hello_is_rejected(settings: Settings) -> None:
         ws.send_bytes(hello_bytes())
         ws.send_bytes(hello_bytes(session_id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"))
         with pytest.raises(WebSocketDisconnect):
-            ws.receive_bytes()
+            receive_until_disconnect(ws.receive_bytes)
     assert len(app.container.sessions) == 0
 
 
@@ -46,6 +46,6 @@ def test_max_sessions(settings: Settings) -> None:
         with client.websocket_connect(capped.ws_path) as second:
             second.send_bytes(hello_bytes(session_id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"))
             with pytest.raises(WebSocketDisconnect):
-                second.receive_bytes()
+                receive_until_disconnect(second.receive_bytes)
         first.send_bytes(encode_close())
     assert len(app.container.sessions) == 0

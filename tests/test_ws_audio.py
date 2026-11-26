@@ -15,7 +15,7 @@ from server.playback import PlaybackCursor
 from server.transport import encode_ack, encode_close, encode_pcm
 from tests.conftest import Harness
 from tests.support import counter_value
-from tests.ws_helpers import SESSION_A, hello_bytes, pcm_message, tone_pcm
+from tests.ws_helpers import SESSION_A, hello_bytes, pcm_message, receive_until_disconnect, tone_pcm
 
 
 def test_fifty_tone_frames_and_play_ack(settings: Settings) -> None:
@@ -37,6 +37,18 @@ def test_fifty_tone_frames_and_play_ack(settings: Settings) -> None:
     assert SESSION_A not in app.container.sessions
 
 
+def test_cap_ack_does_not_move_play_cursor(settings: Settings) -> None:
+    app = create_app(settings)
+    with TestClient(app) as client, client.websocket_connect(settings.ws_path) as ws:
+        ws.send_bytes(hello_bytes())
+        ws.send_bytes(encode_ack(0, stream="cap"))
+        ws.send_bytes(encode_close())
+    snapshot = app.container.closed_snapshots
+    assert snapshot is not None
+    assert snapshot[0].acked_frame == -1
+    assert counter_value(app.container.metrics.play_ack_wrong_stream) == 1.0
+
+
 def test_rewind_is_rejected(settings: Settings) -> None:
     app = create_app(settings)
     with TestClient(app) as client, client.websocket_connect(settings.ws_path) as ws:
@@ -44,7 +56,7 @@ def test_rewind_is_rejected(settings: Settings) -> None:
         ws.send_bytes(pcm_message(0, settings))
         ws.send_bytes(pcm_message(0, settings))
         with pytest.raises(WebSocketDisconnect):
-            ws.receive_bytes()
+            receive_until_disconnect(ws.receive_bytes)
     snapshot = app.container.closed_snapshots
     assert snapshot is not None
     assert snapshot[0].frames_accepted == 1
@@ -56,7 +68,7 @@ def test_wrong_pcm_length_increments_reject(settings: Settings) -> None:
         ws.send_bytes(hello_bytes())
         ws.send_bytes(encode_pcm(0, b"\x00\x00"))
         with pytest.raises(WebSocketDisconnect):
-            ws.receive_bytes()
+            receive_until_disconnect(ws.receive_bytes)
     assert counter_value(app.container.metrics.ws_rejects, reason="pcm_length") == 1.0
 
 
@@ -83,7 +95,7 @@ def test_inbox_full_closes_1011(settings: Settings) -> None:
         for index in range(4):
             ws.send_bytes(pcm_message(index, tight))
         with pytest.raises(WebSocketDisconnect) as disconnected:
-            ws.receive_bytes()
+            receive_until_disconnect(ws.receive_bytes)
     assert disconnected.value.code == 1011
     assert counter_value(app.container.metrics.ws_rejects, reason="backpressure") == 1.0
 

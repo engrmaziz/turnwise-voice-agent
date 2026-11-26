@@ -11,10 +11,13 @@ from fastapi.responses import FileResponse
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest
 from pydantic import BaseModel
 
+from dialogue.templates import load_templates
 from models.asr_pool import AsrPool
 from models.llm_client import LlmClient
 from models.nlu_pool import NluScorer
 from models.onnx_pool import TurnScorer
+from models.tts_cache import TtsCache, warmup_cache, warmup_texts
+from models.tts_pool import TtsPool, load_tts_pool
 from models.vad_pool import VadEngine, VadPool
 from pipeline.metrics import StageMetrics, build_stage_metrics
 from pipeline.session import SessionStore
@@ -56,6 +59,8 @@ class AppContainer:
     turn_scorer: TurnScorer | None = None
     nlu_scorer: NluScorer | None = None
     llm_client: LlmClient | None = None
+    tts_pool: TtsPool | None = None
+    tts_cache: TtsCache | None = None
 
 
 class TurnwiseApp(FastAPI):
@@ -82,6 +87,14 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     turn_scorer = _load_turn(resolved)
     nlu_scorer = _load_nlu(resolved)
     llm_client = LlmClient.unavailable(timeout_ms=resolved.llm_timeout_ms)
+    load_templates()
+    tts_pool = load_tts_pool(resolved)
+    phrases = warmup_texts(resolved)
+    tts_cache = TtsCache(
+        warmup_ids=frozenset(resolved.tts_warmup_list),
+        warmup_texts=frozenset(phrases.values()),
+    )
+    warmup_cache(tts_cache, tts_pool, resolved, metrics)
     container = AppContainer(
         settings=resolved,
         registry=registry,
@@ -97,6 +110,8 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         turn_scorer=turn_scorer,
         nlu_scorer=nlu_scorer,
         llm_client=llm_client,
+        tts_pool=tts_pool,
+        tts_cache=tts_cache,
     )
 
     @asynccontextmanager
@@ -122,6 +137,9 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
             nlu = container.nlu_scorer
             if nlu is not None:
                 nlu.close()
+            tts = container.tts_pool
+            if tts is not None:
+                tts.close()
 
     app = TurnwiseApp(container=container, lifespan=lifespan)
     client_dir = Path(__file__).resolve().parent.parent / "client"

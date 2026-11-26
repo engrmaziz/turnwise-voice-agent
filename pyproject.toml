@@ -1,7 +1,7 @@
 [project]
 name = "turnwise"
 version = "0.1.0"
-description = "Local full-duplex streaming voice agent. This release is the event bus, audio front end, stub ASR, turn-taking, spoken NLU, and the dialogue FSM with SQLite tools."
+description = "Local full-duplex streaming voice agent. This release is the event bus, audio front end, stub ASR, turn-taking, spoken NLU, the dialogue FSM with SQLite tools, and stub streaming TTS."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",

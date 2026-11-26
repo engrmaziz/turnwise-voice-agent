@@ -17,7 +17,7 @@ from dialogue.context import StepContext
 from dialogue.execute import offer_booking, write_booking
 from dialogue.filler import filler_event
 from dialogue.machine import DialogueMachine
-from dialogue.planner import speak
+from dialogue.planner import select_template_text, speak
 from dialogue.slots import DialogueState, next_ask_slot
 from models.llm_client import LlmClient
 from nlp.hotwords import load_roster
@@ -279,19 +279,35 @@ class DialogueHandler:
         )
 
     async def _say(self, state: DialogueState) -> None:
-        template_id = state.last_template or "greet"
+        action = state.last_action or "say_greeting"
+        try:
+            template_id, filled = select_template_text(action, state)
+        except ValueError:
+            template_id = (state.last_template or "greet").split(":")[0]
+            filled = state.played_text or template_id
         text = await speak(
             template_id,
-            fallback=state.played_text or template_id,
+            fallback=filled,
             settings=self._settings,
             llm=self._llm,
             paraphrase=False,
+            slots=state.slots,
+            metrics=self._metrics,
         )
+        name = state.slots.get("patient_name")
+        spell_name = 0
+        if name is not None and needs_explicit_confirm(
+            "patient_name", name.confidence, self._settings
+        ):
+            spell_name = 1
         payload: dict[str, JsonValue] = {
             "template_id": template_id.split(":")[0],
             "text": text,
             "filler": state.say_filler,
             "state": state.state_id,
+            "confirm": 1 if action == "confirm" else 0,
+            "digit_mode": 1 if template_id == "spell_or_digits" else 0,
+            "spell_name": spell_name,
         }
         if state.faq_chunk_id:
             payload["chunk_id"] = state.faq_chunk_id

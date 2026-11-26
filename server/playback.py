@@ -45,6 +45,12 @@ class PlaybackCursor:
         if end_frame > self._sent_max:
             self._sent_max = end_frame
 
+    def reset(self) -> None:
+        """Clear the map on barge-in so a new SAY starts play index 0."""
+        self.acked_frame = -1
+        self._sent_max = -1
+        self._chunks.clear()
+
     def ack(self, frame_index: int) -> bool:
         """Apply a play ack. False when the index is ahead of sent audio."""
         if frame_index < 0:

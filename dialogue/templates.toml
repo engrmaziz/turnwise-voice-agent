@@ -1,0 +1,82 @@
+# Keyed by FSM action name. Missing keys fail at load.
+
+[say_greeting]
+id = "greet"
+text = "Hello, this is Turnwise Clinic."
+
+[ask_slot]
+id = "ask_slot"
+text = "I still need {slot}."
+ask = "I still need that detail."
+
+[set_patient]
+id = "ask_intent"
+text = "Are you calling to book, move, or cancel a visit?"
+
+[set_intent]
+id = "ask_slot"
+text = "I still need that detail."
+ask = "I still need that detail."
+
+[ask_intent]
+id = "ask_intent"
+text = "Are you calling to book, move, or cancel a visit?"
+
+[confirm]
+id = "confirm_readback"
+text = "I will book {doctor} on {date} at {time}. Is that right?"
+
+[execute]
+id = "one_moment"
+text = "One moment."
+
+[say_done]
+id = "booked"
+text = "Your visit is booked."
+
+[reoffer]
+id = "reoffer"
+text = "That time was just taken. I can offer another slot."
+
+[handoff]
+id = "handoff_summary"
+text = "I will put you through to the front desk."
+
+[urgent_message]
+id = "seek_emergency"
+text = "If this is an emergency, hang up and call emergency services now."
+
+[faq_enter]
+id = "faq_search"
+text = "Let me check the clinic FAQ."
+
+[say_faq]
+id = "faq"
+text = "{faq}"
+
+[say_faq_refuse]
+id = "faq_refuse"
+text = "I do not have that in the clinic FAQ."
+
+[say_goodbye]
+id = "goodbye"
+text = "Goodbye."
+
+[repair]
+id = "spell_or_digits"
+text = "Please spell that, or say the digits one at a time."
+
+[clear_pending]
+id = "ask_slot"
+text = "I still need that detail."
+ask = "I still need that detail."
+
+[warmup]
+greeting = "Hello, this is Turnwise Clinic."
+one_moment = "One moment."
+could_you_repeat = "Could you repeat that?"
+headphones_required = "Please wear headphones so I can hear you."
+seek_emergency = "If this is an emergency, hang up and call emergency services now."
+cannot_book_now = "I cannot book that right now."
+cannot_speak = "I am having trouble speaking. Please hold."
+goodbye = "Goodbye."
