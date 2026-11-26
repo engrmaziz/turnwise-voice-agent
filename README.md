@@ -4,7 +4,7 @@ A fully local, streaming voice agent where deterministic dialogue control owns c
 
 Clinic receptionist: book, reschedule, and cancel appointments, answer FAQs, escalate urgent symptoms, hand off to a human. $0 to run after the hardware you already own. No hosted speech or model API on the default path.
 
-**This checkout is Phase 0 through Phase 4.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, and gated barge-in are in. There is no dialogue machine or TTS yet. Real ASR weights are not pinned (ADR-006 blocked). Product SLOs are TARGETS and unmet.
+**This checkout is Phase 0 through Phase 5.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, and spoken NLU are in. There is no dialogue machine or TTS yet. Real ASR weights are not pinned (ADR-006 blocked). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet.
 
 ## Scope
 
@@ -28,7 +28,7 @@ HIPAA certification or a compliance claim. Server-side acoustic echo cancellatio
 
 ## SLO targets (unmet)
 
-Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number below has been measured on a call. Measured latencies so far: in-process stage hop, resample p50, Silero VAD p50, ITN p50, temporal p50, turn-classifier p50, and synthetic cancel latency (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/results/phase2.md`](docs/results/phase2.md), [`docs/results/phase3.md`](docs/results/phase3.md), [`docs/results/phase4.md`](docs/results/phase4.md)).
+Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number below has been measured on a call. Measured latencies so far: in-process stage hop, resample p50, Silero VAD p50, ITN p50, temporal p50, turn-classifier p50, synthetic cancel latency, and NLU student p50 (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/results/phase2.md`](docs/results/phase2.md), [`docs/results/phase3.md`](docs/results/phase3.md), [`docs/results/phase4.md`](docs/results/phase4.md), [`docs/results/phase5.md`](docs/results/phase5.md)).
 
 | Metric | Target |
 |---|---|
@@ -37,7 +37,7 @@ Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number belo
 | Task success, 10 dB SNR | ≥ 75% |
 | False barge-in | < 2% of agent utterances |
 | Early cutoff | < 5% of user turns |
-| Slot F1 on ASR output | Report only until the golden set exists |
+| Slot F1 on ASR output | Report only (`golden_incomplete`; see [`docs/results/phase5.md`](docs/results/phase5.md)) |
 | Urgent-case recall | ~100% (keyword path sufficient) |
 | Critical-slot error after confirmation | ~0% (confirmed value vs scenario truth) |
 | FAQ hallucination rate | TARGET 0 on the FAQ set once the judge exists |
@@ -97,6 +97,11 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M4.2 turn-completeness classifier | done (see `docs/results/phase4.md`) |
 | M4.3 barge-in, backchannels, playback prefix | done |
 | M4.4 cancel latency + turn counters | done |
-| Phases 5–10 | not started |
+| M5.1 synthetic caller corpus | done (200 hand_authored; LLM blocked) |
+| M5.2 render, recognize, align, teach | done (stub ASR; teacher blocked) |
+| M5.3 golden set | done (`golden_incomplete`; 20-row CI fixture only) |
+| M5.4 joint student + NLU stage | done (see `docs/results/phase5.md`; slot F1 unpublished) |
+| M5.5 disfluency + phonetic resolve | done (sweep `untuned`) |
+| Phases 6–10 | not started |
 
 Roadmap with acceptance lines: [`docs/ROADMAP.md`](docs/ROADMAP.md).

@@ -12,6 +12,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_l
 from pydantic import BaseModel
 
 from models.asr_pool import AsrPool
+from models.nlu_pool import NluScorer
 from models.onnx_pool import TurnScorer
 from models.vad_pool import VadEngine, VadPool
 from pipeline.metrics import StageMetrics, build_stage_metrics
@@ -52,6 +53,7 @@ class AppContainer:
     vad_engine: VadEngine = field(default_factory=unavailable_vad)
     asr_pool: AsrPool | None = None
     turn_scorer: TurnScorer | None = None
+    nlu_scorer: NluScorer | None = None
 
 
 class TurnwiseApp(FastAPI):
@@ -76,6 +78,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     vad_engine = _load_vad(resolved)
     asr_pool = _load_asr(resolved, metrics)
     turn_scorer = _load_turn(resolved)
+    nlu_scorer = _load_nlu(resolved)
     container = AppContainer(
         settings=resolved,
         registry=registry,
@@ -89,6 +92,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         vad_engine=vad_engine,
         asr_pool=asr_pool,
         turn_scorer=turn_scorer,
+        nlu_scorer=nlu_scorer,
     )
 
     @asynccontextmanager
@@ -111,6 +115,9 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
             scorer = container.turn_scorer
             if scorer is not None:
                 scorer.close()
+            nlu = container.nlu_scorer
+            if nlu is not None:
+                nlu.close()
 
     app = TurnwiseApp(container=container, lifespan=lifespan)
     client_dir = Path(__file__).resolve().parent.parent / "client"
@@ -161,6 +168,22 @@ def _load_turn(settings: Settings) -> TurnScorer:
         timeout_ms=settings.turn_timeout_ms,
         feature_dim=settings.turn_feature_dim,
         ngram=settings.turn_ngram,
+    )
+
+
+def _load_nlu(settings: Settings) -> NluScorer:
+    path = Path(settings.nlu_model_path.strip())
+    if not settings.nlu_model_path.strip() or not path.is_file():
+        return NluScorer.unavailable(timeout_ms=settings.nlu_timeout_ms)
+    bio = path.with_name("nlu_bio.onnx")
+    if not bio.is_file():
+        return NluScorer.unavailable(timeout_ms=settings.nlu_timeout_ms)
+    return NluScorer.load(
+        path,
+        bio,
+        timeout_ms=settings.nlu_timeout_ms,
+        feature_dim=settings.nlu_feature_dim,
+        ngram=settings.nlu_ngram,
     )
 
 

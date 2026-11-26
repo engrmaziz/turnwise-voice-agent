@@ -18,3 +18,9 @@ Turnwise_Execution_Plan.docx
 *.gguf
 models/weights/
 training/turn/truncation.jsonl
+training/nlu/scripts.jsonl
+training/nlu/asr_rows.jsonl
+training/nlu/asr_fixture_rows.jsonl
+training/nlu/teacher_kept.jsonl
+training/nlu/golden.jsonl
+training/nlu/*.wav

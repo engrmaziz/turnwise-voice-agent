@@ -68,9 +68,9 @@ Demo-able outcome: 200 scripts validate, covering every intent at least 10 times
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T5.1.1 | Schema and persona list | `training/nlu/schema.py` | T3.5.1 | 3 | forward | `tests/test_caller_schema.py` rejects an unknown intent and a slot not in appendix D |
-| T5.1.2 | Generate scripts with the local LLM under a grammar | `training/nlu/generate.py` | T5.1.1, T1.4.3 | 5 | forward | Output JSONL parses. If the LLM bench is `blocked`, the task writes 200 hand-authored fixture lines instead and labels the file `hand_authored` |
-| T5.1.3 | Commit the schema and a 20-line fixture, gitignore the full JSONL | `training/nlu/fixture_scripts.jsonl` | T5.1.2 | 2 | forward | The fixture is enough for unit tests. The full set path is in the results file |
+| T5.1.1 | Schema and persona list | `training/nlu/schema.py` | T3.5.1 | 3 | done | `tests/test_caller_schema.py` rejects an unknown intent and a slot not in appendix D |
+| T5.1.2 | Generate scripts with the local LLM under a grammar | `training/nlu/generate.py` | T5.1.1, T1.4.3 | 5 | done | Output JSONL parses. If the LLM bench is `blocked`, the task writes 200 hand-authored fixture lines instead and labels the file `hand_authored` |
+| T5.1.3 | Commit the schema and a 20-line fixture, gitignore the full JSONL | `training/nlu/fixture_scripts.jsonl` | T5.1.2 | 2 | done | The fixture is enough for unit tests. The full set path is in the results file |
 
 Implementation notes. The grammar forces `intent` and slot keys. Free text is only the `text` field. Personas are `brief`, `verbose`, `disfluent`. Disfluent scripts must contain one of: "no", "sorry", "I mean", "actually". The generator is seeded. The seed is recorded. Invented patient names are from a fixed fake list in the schema file, not from a real directory.
 
@@ -87,10 +87,10 @@ Demo-able outcome: one fixture script round-trips through the stub TTS and stub 
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T5.2.1 | TTS render and MUSAN mix at a requested SNR | `training/nlu/render_audio.py` | T5.1.3, T1.4.4 | 5 | forward | `tests/test_snr.py` mixes a sine and noise and the measured SNR is within 1 dB of the request. TTS itself is mark `bench` |
-| T5.2.2 | Recognize with the chosen backend | `training/nlu/recognize.py` | T5.2.1, T3.2.3 | 5 | forward | Rows contain `asr_text`. A stub ASR returns the clean text with one forced substitution so CI can align |
-| T5.2.3 | Project BIO through alignment | `training/nlu/align_bio.py` | T5.2.2 | 5 | forward | `tests/test_bio_projection.py` covers insert, delete, and a phonetic substitution that keeps the tag |
-| T5.2.4 | Teacher labels the ASR string, constrained to the script's intent unless the ASR text is empty | `training/nlu/teach.py` | T5.2.3, T1.4.3 | 3 | forward | The teacher cannot emit a slot key outside the schema. Test feeds a grammar reject and expects the row to be dropped, not patched by regex |
+| T5.2.1 | TTS render and MUSAN mix at a requested SNR | `training/nlu/render_audio.py` | T5.1.3, T1.4.4 | 5 | done | `tests/test_snr.py` mixes a sine and noise and the measured SNR is within 1 dB of the request. TTS itself is mark `bench` |
+| T5.2.2 | Recognize with the chosen backend | `training/nlu/recognize.py` | T5.2.1, T3.2.3 | 5 | done | Rows contain `asr_text`. A stub ASR returns the clean text with one forced substitution so CI can align |
+| T5.2.3 | Project BIO through alignment | `training/nlu/align_bio.py` | T5.2.2 | 5 | done | `tests/test_bio_projection.py` covers insert, delete, and a phonetic substitution that keeps the tag |
+| T5.2.4 | Teacher labels the ASR string, constrained to the script's intent unless the ASR text is empty | `training/nlu/teach.py` | T5.2.3, T1.4.3 | 3 | done | The teacher cannot emit a slot key outside the schema. Test feeds a grammar reject and expects the row to be dropped, not patched by regex |
 
 Implementation notes. SNR is `10 * log10(signal_power / noise_power)` after aligning lengths. The noise file's license is checked the same way as phase 2. Teacher input is the ASR text plus the clean slots as a hint the prompt calls unreliable. The hint is a compromise so the teacher does not invent a different appointment. The golden review, not the teacher, is the truth. Rows with `align_low` are oversampled into the review queue.
 
@@ -107,12 +107,12 @@ Demo-able outcome: `training/nlu/golden.jsonl` has 500 lines, each with `reviewe
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T5.3.1 | Sample 500 rows, oversampling `align_low` and each intent | `training/nlu/golden_sample.py` | T5.2.4 | 3 | forward | The sample report shows every intent present |
-| T5.3.2 | Review rows 1–125 | `training/nlu/golden.jsonl` | T5.3.1 | 8 | forward | 125 lines have reviewer ids. This is human time. A script checks the count |
+| T5.3.1 | Sample 500 rows, oversampling `align_low` and each intent | `training/nlu/golden_sample.py` | T5.2.4 | 3 | done | The sample report shows every intent present |
+| T5.3.2 | Review rows 1–125 | `training/nlu/golden.jsonl` | T5.3.1 | 8 | open | 125 lines have reviewer ids. This is human time. A script checks the count |
 | T5.3.3 | Review rows 126–250 | `training/nlu/golden.jsonl` | T5.3.2 | 8 | slip | Same check at 250 |
 | T5.3.4 | Review rows 251–375 | `training/nlu/golden.jsonl` | T5.3.3 | 8 | slip | Same check at 375 |
 | T5.3.5 | Review rows 376–500 | `training/nlu/golden.jsonl` | T5.3.4 | 8 | slip | Same check at 500 |
-| T5.3.6 | Schema test for the golden file | `tests/test_golden_schema.py` | T5.3.1 | 2 | forward | A row missing `asr_text` or containing a clean-text-only tag set fails. The test runs on the fixture of 20 reviewed lines in CI. The 500-line file is checked by the same test when present |
+| T5.3.6 | Schema test for the golden file | `tests/test_golden_schema.py` | T5.3.1 | 2 | done | A row missing `asr_text` or containing a clean-text-only tag set fails. The test runs on the fixture of 20 reviewed lines in CI. The 500-line file is checked by the same test when present |
 
 Implementation notes. The reviewer field is a short id the operator chooses, not a guessed name. CI does not require all 500. The phase gate does. Slip tags mean these tasks move past week 15 before the demo script does. The student may train on teacher labels before the review finishes, but the number reported as slot F1 uses only reviewed rows. Reporting teacher-agreement as slot F1 is forbidden. The test `tests/test_golden_schema.py` includes a comment that states that, and `evals/nlu/score.py` refuses a file without `reviewer`.
 
@@ -125,10 +125,10 @@ Demo-able outcome: `docs/results/phase5.md` has student and teacher accuracy, sl
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T5.4.1 | Train the joint model | `training/nlu/train_student.py` | T5.2.4 | 6 | forward | Script writes a metrics JSON. STARTING POINT: learning rate 3e-5, 5 epochs, batch 16, max length 128. The encoder name is whatever ADR-004's tier can run, recorded in the JSON |
-| T5.4.2 | Export INT8 ONNX | `training/nlu/export_student.py` | T5.4.1 | 3 | forward | File loads in `onnx_pool`. Size is in the JSON |
-| T5.4.3 | NLU stage on spoken text, and remove the deterministic matcher from the default path | `pipeline/stages/nlu.py`, `dialogue/regex_slots.py` | T5.4.2, T6.1.6 | 3 | forward | `tests/test_nlu_stage.py` feeds ASR text with a substitution and expects the student's spans. `regex_slots` is not imported by `server/app.py` |
-| T5.4.4 | Score teacher and student on the golden ASR column | `evals/nlu/score.py` | T5.4.3, T5.3.6 | 3 | forward | The scorer errors if `reviewer` is absent. Output is `docs/results/phase5.md` generated from JSON |
+| T5.4.1 | Train the joint model | `training/nlu/train_student.py` | T5.2.4 | 6 | done | Script writes a metrics JSON. STARTING POINT: learning rate 3e-5, 5 epochs, batch 16, max length 128. The encoder name is whatever ADR-004's tier can run, recorded in the JSON |
+| T5.4.2 | Export INT8 ONNX | `training/nlu/export_student.py` | T5.4.1 | 3 | done | File loads in `onnx_pool`. Size is in the JSON |
+| T5.4.3 | NLU stage on spoken text, and remove the deterministic matcher from the default path | `pipeline/stages/nlu.py`, `dialogue/regex_slots.py` | T5.4.2, T6.1.6 | 3 | done | `tests/test_nlu_stage.py` feeds ASR text with a substitution and expects the student's spans. `regex_slots` is not imported by `server/app.py` |
+| T5.4.4 | Score teacher and student on the golden ASR column | `evals/nlu/score.py` | T5.4.3, T5.3.6 | 3 | done | The scorer errors if `reviewer` is absent. Output is `docs/results/phase5.md` generated from JSON |
 
 Implementation notes. Latency allocation for NLU is 30 ms. The scoring script measures p50 on CPU. A miss is reported, not hidden by running the LLM on the hot path. The LLM remains the proposal fallback for `out_of_scope` and for student intent confidence below `nlu_min_intent_confidence`. That fallback is phase 6. This phase only emits the confidence.
 
@@ -147,10 +147,10 @@ Demo-able outcome: unit tests for both, plus a sweep file that replaces the star
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T5.5.1 | Repair markers keep the later span of the same slot | `nlp/disfluency.py` | T5.4.3 | 3 | forward | `tests/test_disfluency.py`: "Tuesday no Wednesday" yields Wednesday. "Tuesday no, the morning" does not delete Tuesday because "morning" is not a date |
-| T5.5.2 | Phonetic score, title strip, margin | `nlp/phonetic.py` | T3.3.1 | 4 | forward | `tests/test_phonetic.py` strips "Dr". A tie within the margin returns two candidates and no id |
-| T5.5.3 | Wire both into the NLU stage before the event is emitted | `pipeline/stages/nlu.py` | T5.5.1, T5.5.2 | 3 | forward | The emitted slots contain catalog ids, never the raw ASR string, for `doctor` |
-| T5.5.4 | Sweep min score and margin on the golden set | `evals/nlu/phonetic_sweep.py` | T5.5.3, T5.3.6 | 3 | slip | `docs/results/phase5_phonetic.md` lists the grid. Settings change only in that commit, citing the file |
+| T5.5.1 | Repair markers keep the later span of the same slot | `nlp/disfluency.py` | T5.4.3 | 3 | done | `tests/test_disfluency.py`: "Tuesday no Wednesday" yields Wednesday. "Tuesday no, the morning" does not delete Tuesday because "morning" is not a date |
+| T5.5.2 | Phonetic score, title strip, margin | `nlp/phonetic.py` | T3.3.1 | 4 | done | `tests/test_phonetic.py` strips "Dr". A tie within the margin returns two candidates and no id |
+| T5.5.3 | Wire both into the NLU stage before the event is emitted | `pipeline/stages/nlu.py` | T5.5.1, T5.5.2 | 3 | done | The emitted slots contain catalog ids, never the raw ASR string, for `doctor` |
+| T5.5.4 | Sweep min score and margin on the golden set | `evals/nlu/phonetic_sweep.py` | T5.5.3, T5.3.6 | 3 | done | `docs/results/phase5_phonetic.md` lists the grid. Settings change only in that commit, citing the file |
 
 Implementation notes. Markers are the list `no`, `sorry`, `i mean`, `actually`. A marker followed by a span of the same slot type replaces the earlier span. Two markers in one utterance apply left to right. The phonetic score is `0.6 * JaroWinkler(metaphone(heard), metaphone(candidate)) + 0.4 * JaroWinkler(heard, candidate)` after lowercasing and stripping titles. Metaphone is English-centric. The sweep is the authority, not the 0.82 constant. If the sweep is still slip, production keeps the starting point and the results file says `untuned`.
 
@@ -194,14 +194,14 @@ ADR-008 if the student latency misses 30 ms and the hot path stays on the determ
 
 ## 5.9 Exit criteria and phase gate
 
-- [ ] BIO projection tests pass.
-- [ ] SNR test passes within 1 dB.
-- [ ] Teacher output is grammar-constrained.
-- [ ] Golden file is 500 reviewed rows or explicitly `golden_incomplete`.
-- [ ] Scorer refuses unreviewed files.
-- [ ] Default path does not import `regex_slots`.
-- [ ] Doctor slots are catalog ids.
-- [ ] Results file has no number that lacks a JSON source.
+- [x] BIO projection tests pass.
+- [x] SNR test passes within 1 dB.
+- [x] Teacher output is grammar-constrained.
+- [x] Golden file is 500 reviewed rows or explicitly `golden_incomplete`.
+- [x] Scorer refuses unreviewed files.
+- [x] Default path does not import `regex_slots`.
+- [x] Doctor slots are catalog ids.
+- [x] Results file has no number that lacks a JSON source.
 
 ## 5.10 Portfolio artifacts
 

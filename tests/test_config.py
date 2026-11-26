@@ -40,6 +40,10 @@ def test_default_backchannel_list_excludes_yes() -> None:
     assert settings.backchannel_list == ("mm-hmm", "mhm", "uh-huh", "yeah", "ok", "okay")
     assert settings.endpoint_digit_patience_ms == 1000
     assert settings.turn_model_enabled is True
+    assert settings.nlu_model_path == ""
+    assert settings.nlu_timeout_ms == 40
+    assert settings.phonetic_min_score == 0.82
+    assert settings.phonetic_margin == 0.05
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:

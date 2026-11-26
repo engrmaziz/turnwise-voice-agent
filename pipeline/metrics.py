@@ -74,6 +74,10 @@ class StageMetrics:
     early_cutoff: Counter
     false_barge_in: Counter
     missed_barge_in: Counter
+    nlu_seconds: Histogram
+    nlu_reject: Counter
+    disambiguation: Counter
+    repair_applied: Counter
 
 
 def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
@@ -303,6 +307,27 @@ def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
         missed_barge_in=Counter(
             "turnwise_missed_barge_in",
             "Labeled should_barge bursts the policy did not cancel.",
+            registry=registry,
+        ),
+        nlu_seconds=Histogram(
+            "turnwise_nlu_seconds",
+            "NLU student wall time including executor wait.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        nlu_reject=Counter(
+            "turnwise_nlu_reject",
+            "NLU timeouts and missing weights that emitted nlu_ok=0.",
+            registry=registry,
+        ),
+        disambiguation=Counter(
+            "turnwise_disambiguation",
+            "Doctor spans that did not resolve to a single catalog id.",
+            registry=registry,
+        ),
+        repair_applied=Counter(
+            "turnwise_repair_applied",
+            "Utterances where a self-repair replaced an earlier slot span.",
             registry=registry,
         ),
     )

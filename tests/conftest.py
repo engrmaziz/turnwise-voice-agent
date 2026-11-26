@@ -41,6 +41,7 @@ def settings() -> Settings:
         vad_timeout_ms=200,
         turn_onnx_path="models/weights/missing.onnx",
         turn_model_enabled=False,
+        nlu_model_path="",
     )
 
 

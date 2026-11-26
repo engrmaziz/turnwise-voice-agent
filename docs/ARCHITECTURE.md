@@ -1,6 +1,6 @@
 # Architecture
 
-Turnwise is a local, full-duplex clinic receptionist. This milestone is the event bus, the audio front end, spoken-form ASR, and turn-taking: typed events, bounded queues, a PCM16 WebSocket, one resample at ingress, Silero VAD, a stub ASR pool that emits `PARTIAL`/`FINAL`, rule-based ITN, a clinic-clock date resolver, a hybrid endpointer, and gated barge-in. No dialogue machine, tool, LLM, or TTS worker exists yet. Real Zipformer and Whisper rows are `blocked` (ADR-006). `python -m evals.bench` times those workers off the call path and writes `docs/benchmarks.md` from JSON.
+Turnwise is a local, full-duplex clinic receptionist. This milestone is the event bus, the audio front end, spoken-form ASR, turn-taking, and spoken NLU: typed events, bounded queues, a PCM16 WebSocket, one resample at ingress, Silero VAD, a stub ASR pool that emits `PARTIAL`/`FINAL`, rule-based ITN, a clinic-clock date resolver, a hybrid endpointer, gated barge-in, and an NLU stage on `FINAL.spoken`. No dialogue machine, tool, LLM, or TTS worker exists yet. Real Zipformer and Whisper rows are `blocked` (ADR-006). `python -m evals.bench` times those workers off the call path and writes `docs/benchmarks.md` from JSON.
 
 Design constraints are ADR-001 (the FSM owns state), ADR-002 (bounded queues and generation cancellation), ADR-003 (model choice waits on measured rows), ADR-004 (hardware tier, blocked), and ADR-006 (ASR backend, blocked until finalize p50 exists).
 
@@ -27,11 +27,11 @@ flowchart LR
 
 `ResponsePlanner` emits either a template or a grammar-constrained model proposal. The model does not write dialogue state. `ITN` produces written forms; a separate deterministic resolver, using the session clock and timezone, turns "next Tuesday" into an instant. Those two steps are not the same component.
 
-On the server, `audio_in` resamples then forwards to `vad`, which fans out in-speech frames to `asr`, `endpoint`, and `barge`. Browser AEC is not a server stage. ITN and temporal resolution run inside the ASR stage on finals only. NLU, FSM, tools, and TTS are not built.
+On the server, `audio_in` resamples then forwards to `vad`, which fans out in-speech frames to `asr`, `endpoint`, and `barge`. ASR finals fan out to `endpoint`, `barge`, and `nlu`. Browser AEC is not a server stage. ITN and temporal resolution run inside the ASR stage on finals only. The NLU stage reads `FINAL.spoken`, never `normalized`, applies self-repair, and resolves `doctor` against the roster. FSM, tools, and TTS are not built.
 
 AEC runs in the browser (`echoCancellation` on the microphone). The server does not cancel echo. `Session.request_barge_in` is a no-op unless `session.barge_in_enabled` is true, and that flag is the hello `aec` boolean from `track.getSettings()`, not the constraint the client asked for. Barge-in on speakers without that client flag is unsupported until a server AEC exists. The VAD stage does not call `request_barge_in`; the barge-in stage does, after AEC, 250 ms of speech, and a non-backchannel partial all pass.
 
-Shared worker pools are process-wide, not one copy per call. The Silero VAD pool is built: one ONNX session, inference in a `ThreadPoolExecutor`, timeout `vad_timeout_ms` (30). The ASR pool is built as a stub until ADR-006 names weights: `asr_backend` empty refuses `AsrPool.load_real`, the process uses the stub, finish timeout `asr_finish_timeout_ms` (200), speaking sessions dequeue first. The turn-completeness scorer is a hashed-ngram linear ONNX (`from_scratch`). CPU p50 on this host is in `docs/results/phase4.md`; `turn_model_enabled` defaults true. A missing weight file is an unavailable scorer and `p_complete=0`. No ADR-007. TTS and the language-model client are not. A worker result carries the generation captured at submit time and is discarded if the session has moved on. Cancelling the session task does not stop a call already inside the worker.
+Shared worker pools are process-wide, not one copy per call. The Silero VAD pool is built: one ONNX session, inference in a `ThreadPoolExecutor`, timeout `vad_timeout_ms` (30). The ASR pool is built as a stub until ADR-006 names weights: `asr_backend` empty refuses `AsrPool.load_real`, the process uses the stub, finish timeout `asr_finish_timeout_ms` (200), speaking sessions dequeue first. The turn-completeness scorer is a hashed-ngram linear ONNX (`from_scratch`). CPU p50 on this host is in `docs/results/phase4.md`; `turn_model_enabled` defaults true. A missing weight file is an unavailable scorer and `p_complete=0`. No ADR-007. The NLU student is the same kind of hashed-ngram linear pair (`nlu_intent.onnx`, `nlu_bio.onnx`, encoder `from_scratch`). CPU p50 is in `docs/results/phase5.md`. `nlu_model_path` defaults empty so CI loads an unavailable scorer and emits `nlu_ok=0`. Timeout `nlu_timeout_ms` (40). No ADR-008. TTS and the language-model client are not. A worker result carries the generation captured at submit time and is discarded if the session has moved on. Cancelling the session task does not stop a call already inside the worker.
 
 ## Endpointer
 
@@ -45,6 +45,10 @@ Shared worker pools are process-wide, not one copy per call. The Silero VAD pool
 6. Otherwise return true when silence ≥ 800 ms on a non-digit slot.
 
 `p_complete` is scored on the stable prefix plus `expected_slot`. A classifier timeout is `p_complete=0`; silence rules still run. Barge-in requires `barge_in_enabled`, ≥ 250 ms of speech, and a partial that `is_backchannel` rejects. `okay` is a backchannel on `none` and an answer on `confirm`. Default phrases never include `yes`. Played text is the acked prefix from `PlaybackCursor.note_chunk`, not the full SAY string. A missing map yields empty `played_text` and `turnwise_playback_unmap_total`.
+
+## Spoken NLU
+
+`pipeline/stages/nlu.py` consumes `FINAL` and ignores every other kind. The student scores `spoken`. Self-repair (`no`, `sorry`, `i mean`, `actually`) keeps the later span of the same slot. `doctor` is resolved with `0.6 * JaroWinkler(metaphone) + 0.4 * JaroWinkler` after stripping `dr`/`doctor`. A tie inside `phonetic_margin` or a score below `phonetic_min_score` emits candidates and no id. Timeouts and missing weights emit `nlu_ok=0`. `dialogue.regex_slots` is not imported by `server.app`. Golden slot F1 is unpublished (`docs/results/phase5.md`).
 
 ## Event schema
 
@@ -154,6 +158,10 @@ Counters are created without a `_total` suffix. Prometheus adds it on the scrape
 | `turnwise_early_cutoff_total` | `TURN_END` labeled before the scenario last token. |
 | `turnwise_false_barge_in_total` | Cancels whose fixture label is not `should_barge`. |
 | `turnwise_missed_barge_in_total` | Labeled `should_barge` bursts the policy did not cancel. |
+| `turnwise_nlu_seconds` | NLU student wall time including executor wait. |
+| `turnwise_nlu_reject_total` | NLU timeouts and missing weights that emitted `nlu_ok=0`. |
+| `turnwise_disambiguation_total` | Doctor spans that did not resolve to a single catalog id. |
+| `turnwise_repair_applied_total` | Utterances where a self-repair replaced an earlier slot span. |
 
 Logs go through structlog. `session_id`, `turn_id`, and `generation` are bound for the handler. Configured PII field names are HMAC-SHA256'd. A log key named `payload` is replaced with `omitted`. If `TURNWISE_PII_HASH_KEY` is unset, the process generates a key and logs `pii_hash_key_unset` once; hashes will not join across restarts.
 
@@ -194,6 +202,8 @@ Resample of one 20 ms 48 kHz frame to 16 kHz: p50 **0.1446 ms** (`docs/results/p
 ITN rule fallback p50 **0.0459 ms** and temporal `"next Tuesday"` p50 **0.0078 ms** (`docs/results/phase3.md`). Sum **0.0537 ms** inside the 10 ms ITN-plus-temporal allocation. NeMo did not import (`ModuleNotFoundError`).
 
 Turn-completeness ONNX p50 **0.1425 ms** (`docs/results/phase4.md`), inside the 10 ms turn-detector allocation. Synthetic barge-in cancel latency **0.0543 ms** (TARGET 100 ms).
+
+NLU student ONNX p50 **0.3993 ms** (`docs/results/phase5.md`), inside the 30 ms NLU allocation. No ADR-008.
 
 No time-to-first-audio sample has been recorded. Real ASR finalize p50 is blocked (ADR-006).
 
@@ -237,7 +247,7 @@ Settings and defaults are in `server/config.py` and `.env.example`.
 
 ## What this milestone does not do
 
-- No NLU, FSM, tools, or TTS worker. Ingress, VAD, the ASR stub, the endpointer, and gated barge-in are live. Zipformer/Whisper weights are not pinned (ADR-006 blocked). The week-6 book path is Phase 6.
+- No FSM, tools, or TTS worker. Ingress, VAD, the ASR stub, the endpointer, gated barge-in, and spoken NLU are live. The NLU student trains on stub-ASR text; Zipformer/Whisper weights are not pinned (ADR-006 blocked). Golden slot F1 is unpublished (`golden_incomplete`). The week-6 book path is Phase 6. `regex_slots` is not on the default import path.
 - No model is pinned for ASR, LLM, or TTS. ADR-003 stays Proposed. ADR-004 is blocked until those rows are `ok`.
 - No session supervisor. A failed stage task stays failed until the owner closes it.
 - Playback acks and `frame_index` are on the event so later stages share a clock.

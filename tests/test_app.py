@@ -39,6 +39,10 @@ def test_health_and_empty_ttfa_histogram(settings: Settings) -> None:
     assert "turnwise_cancel_latency_seconds" in body
     assert "turnwise_false_barge_in_total" in body
     assert "turnwise_missed_barge_in_total" in body
+    assert "turnwise_nlu_seconds" in body
+    assert "turnwise_nlu_reject_total" in body
+    assert "turnwise_disambiguation_total" in body
+    assert "turnwise_repair_applied_total" in body
     assert "turnwise_ttfa_seconds_count 0.0" in body
     assert "turnwise_ttfa_content_seconds_count 0.0" in body
 

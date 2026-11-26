@@ -91,6 +91,14 @@ class Settings(BaseSettings):
     barge_in_min_speech_ms: int = 250
     backchannel_max_ms: float = 400.0
     backchannel_phrases: str = "mm-hmm,mhm,uh-huh,yeah,ok,okay"
+    nlu_model_path: str = ""
+    nlu_timeout_ms: int = 40
+    nlu_min_intent_confidence: float = 0.6
+    nlu_feature_dim: int = 256
+    nlu_ngram: int = 3
+    phonetic_min_score: float = 0.82
+    phonetic_margin: float = 0.05
+    repair_markers: str = "no,sorry,i mean,actually"
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -146,6 +154,9 @@ class Settings(BaseSettings):
         "turn_feature_dim",
         "turn_ngram",
         "barge_in_min_speech_ms",
+        "nlu_timeout_ms",
+        "nlu_feature_dim",
+        "nlu_ngram",
     )
     @classmethod
     def at_least_one(cls, value: int) -> int:
@@ -193,6 +204,9 @@ class Settings(BaseSettings):
         "audio_clip_fraction",
         "endpoint_high_p",
         "endpoint_mid_p",
+        "nlu_min_intent_confidence",
+        "phonetic_min_score",
+        "phonetic_margin",
     )
     @classmethod
     def unit_interval(cls, value: float) -> float:

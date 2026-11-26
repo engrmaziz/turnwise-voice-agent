@@ -36,6 +36,8 @@ Done. Measured and blocked rows: `docs/results/phase3.md`. ADR-006 leaves `asr_b
 
 ## Phase 4 — Turns and barge-in
 
+Done. Measured rows: `docs/results/phase4.md`. Week-6 book path stays Phase 6.
+
 - Endpointing applies the expected-slot pause before the completion probability, so phone numbers and dates of birth are not cut at 200 ms.
 - The turn classifier's CPU time is measured and fits a 10 ms budget on the bench machine, or the budget is revised in an ADR with the number.
 - Backchannels are state-dependent. "Okay" during a yes/no question is a turn.
@@ -44,6 +46,8 @@ Done. Measured and blocked rows: `docs/results/phase3.md`. ADR-006 leaves `asr_b
 - The week-6 product slice (deterministic slots, templates, SQLite book) is Phase 6. Phase 4 lands turn-taking only.
 
 ## Phase 5 — NLU
+
+Done. Measured and blocked rows: `docs/results/phase5.md`. Golden is `golden_incomplete`; phonetic sweep is `untuned`. Slot F1 is unpublished.
 
 - Training text is TTS, then noise, then this recognizer. Clean transcripts are not the training distribution.
 - A 500-example golden set is hand-checked.

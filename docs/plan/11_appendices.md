@@ -59,6 +59,9 @@ Environment prefix `TURNWISE_`. Types are Python types on `Settings`. STARTING P
 | `nlu_model_path` | str | empty until export | Student ONNX | 5 T5.4.2 |
 | `nlu_timeout_ms` | int | 40 | Student timeout | 5 T5.4.3 |
 | `nlu_min_intent_confidence` | float | 0.6 STARTING POINT | Below → proposal path | 5 T5.4.3 |
+| `nlu_feature_dim` | int | 256 | Hashed n-gram dim | 5 T5.4.1 |
+| `nlu_ngram` | int | 3 | Character n-grams | 5 T5.4.1 |
+| `repair_markers` | str | `no,sorry,i mean,actually` | Self-repair | 5 T5.5.1 |
 | `phonetic_min_score` | float | 0.82 STARTING POINT | Until T5.5.4 | 5 T5.5.2 |
 | `phonetic_margin` | float | 0.05 STARTING POINT | Until T5.5.4 | 5 T5.5.2 |
 | `regex_slots_enabled` | bool | false after T5.4.3 | Week-6 matcher | 6 T6.1.6 |

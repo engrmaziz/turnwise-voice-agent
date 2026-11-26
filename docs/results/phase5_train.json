@@ -1,0 +1,14 @@
+{
+  "encoder": "from_scratch",
+  "intent_accuracy": 1.0,
+  "rows": 200,
+  "lr": 0.1,
+  "plan_lr": 3e-05,
+  "epochs": 5,
+  "batch": 16,
+  "max_length": 128,
+  "feature_dim": 256,
+  "ngram": 3,
+  "training_data": "training/nlu/asr_rows.jsonl",
+  "training_data_sha256": "857dd20c82fe1d7954f7281dd8854f1c5c5ecb52e89e77f70a74f3a0a4b487c6"
+}

@@ -15,6 +15,7 @@ from opentelemetry.trace import Tracer, get_tracer
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from models.asr_pool import AsrPool
+from models.nlu_pool import NluScorer
 from models.onnx_pool import TurnScorer
 from models.vad_pool import VadEngine
 from pipeline.audio.clock import ClockError, FrameClock
@@ -28,6 +29,7 @@ from pipeline.stages.asr import AsrHandler
 from pipeline.stages.audio_in import AudioInHandler
 from pipeline.stages.barge import BargeHandler
 from pipeline.stages.endpoint import EndpointHandler
+from pipeline.stages.nlu import NluHandler
 from pipeline.stages.vad import VadHandler
 from server.config import Settings
 from server.playback import ClosedCallSnapshot, PlaybackCursor
@@ -57,6 +59,7 @@ class WsContainer(Protocol):
     vad_engine: VadEngine
     asr_pool: AsrPool | None
     turn_scorer: TurnScorer | None
+    nlu_scorer: NluScorer | None
 
     @property
     def make_audio_handler(self) -> Callable[[], AudioInHandler]: ...
@@ -70,6 +73,7 @@ class LiveCall:
     asr_stage: Stage
     endpoint_stage: Stage
     barge_stage: Stage
+    nlu_stage: Stage
     handler: AudioInHandler
     vad_handler: VadHandler
     asr_handler: AsrHandler
@@ -201,7 +205,25 @@ async def _on_hello(
         tracer=tracer,
         metrics=container.metrics,
     )
-    asr_handler.set_forward(fan_out(endpoint_stage.emit, barge_stage.emit))
+    nlu = container.nlu_scorer
+    if nlu is None:
+        nlu = NluScorer.unavailable(timeout_ms=settings.nlu_timeout_ms)
+    nlu_handler = NluHandler(
+        session=session,
+        settings=settings,
+        scorer=nlu,
+        metrics=container.metrics,
+    )
+    nlu_stage = Stage(
+        name="nlu",
+        session_id=session.session_id,
+        sessions=container.sessions,
+        handler=nlu_handler,
+        config=config,
+        tracer=tracer,
+        metrics=container.metrics,
+    )
+    asr_handler.set_forward(fan_out(endpoint_stage.emit, barge_stage.emit, nlu_stage.emit))
     endpoint_handler.set_forward(fan_out(asr_stage.emit, barge_stage.emit))
     vad_handler = VadHandler(
         session=session,
@@ -239,6 +261,7 @@ async def _on_hello(
         tracer=tracer,
         metrics=container.metrics,
     )
+    nlu_stage.start()
     asr_stage.start()
     endpoint_stage.start()
     barge_stage.start()
@@ -259,6 +282,7 @@ async def _on_hello(
         asr_stage=asr_stage,
         endpoint_stage=endpoint_stage,
         barge_stage=barge_stage,
+        nlu_stage=nlu_stage,
         handler=handler,
         vad_handler=vad_handler,
         asr_handler=asr_handler,
@@ -336,6 +360,7 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
         await asyncio.wait_for(call.asr_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.endpoint_stage.inbox.join(), timeout=2.0)
         await asyncio.wait_for(call.barge_stage.inbox.join(), timeout=2.0)
+        await asyncio.wait_for(call.nlu_stage.inbox.join(), timeout=2.0)
     except TimeoutError:
         _LOG.warning("ws_teardown_join_timeout", session_id=call.session.session_id)
     except asyncio.CancelledError as exc:
@@ -356,6 +381,7 @@ async def _teardown(container: WsContainer, call: LiveCall | None) -> None:
         call.asr_stage,
         call.endpoint_stage,
         call.barge_stage,
+        call.nlu_stage,
     ):
         try:
             await stage.aclose()

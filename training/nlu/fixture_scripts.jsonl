@@ -1,0 +1,21 @@
+# source=hand_authored seed=11
+{"script_id":"s0001","intent":"book","slots":{"patient_name":"Quinn Harlow","phone":"5550101234","doctor":"Dr. Rafael Ortiz","date":"Tuesday","time":"nine"},"persona":"verbose","disfluency":false,"text":"hi this is Quinn Harlow my phone is 5550101234 I would like to book with Dr. Rafael Ortiz on Tuesday at nine"}
+{"script_id":"s0007","intent":"reschedule","slots":{"appointment_id":"A2044","date":"Monday","time":"two thirty"},"persona":"verbose","disfluency":false,"text":"move A2044 to Monday at two thirty"}
+{"script_id":"s0003","intent":"cancel","slots":{"appointment_id":"A3310"},"persona":"brief","disfluency":false,"text":"please cancel A3310"}
+{"script_id":"s0006","intent":"check_appointment","slots":{"patient_name":"Taylor Voss","phone":"5550198765"},"persona":"brief","disfluency":false,"text":"when is my visit I am Taylor Voss 5550198765"}
+{"script_id":"s0005","intent":"faq","slots":{"faq_query":"do I need a referral"},"persona":"disfluent","disfluency":true,"text":"do I need a referral no just the hours"}
+{"script_id":"s0002","intent":"speak_to_human","slots":{"reason":"billing"},"persona":"disfluent","disfluency":true,"text":"I can wait sorry I need a person about billing"}
+{"script_id":"s0025","intent":"urgent_symptom","slots":{},"persona":"verbose","disfluency":false,"text":"my chest hurts and I feel faint"}
+{"script_id":"s0018","intent":"out_of_scope","slots":{},"persona":"brief","disfluency":false,"text":"I want to pay my electric bill"}
+{"script_id":"s0009","intent":"book","slots":{"patient_name":"Riley Cho","phone":"5550198765","doctor":"Dr. Nia Okonkwo","date":"Monday","time":"two"},"persona":"brief","disfluency":false,"text":"book Dr. Nia Okonkwo Monday two for Riley Cho 5550198765"}
+{"script_id":"s0014","intent":"reschedule","slots":{"appointment_id":"A1001","date":"Wednesday","time":"two thirty"},"persona":"disfluent","disfluency":true,"text":"move A1001 to Monday I mean Wednesday at two thirty"}
+{"script_id":"s0004","intent":"cancel","slots":{"appointment_id":"A1001"},"persona":"verbose","disfluency":false,"text":"please cancel A1001"}
+{"script_id":"s0013","intent":"check_appointment","slots":{"patient_name":"Avery Dunn","phone":"5550198765"},"persona":"verbose","disfluency":false,"text":"when is my visit I am Avery Dunn 5550198765"}
+{"script_id":"s0022","intent":"faq","slots":{"faq_query":"what are your hours"},"persona":"verbose","disfluency":false,"text":"what are your hours"}
+{"script_id":"s0008","intent":"speak_to_human","slots":{"reason":"billing"},"persona":"disfluent","disfluency":true,"text":"I can wait no I need a person about billing"}
+{"script_id":"s0030","intent":"urgent_symptom","slots":{},"persona":"brief","disfluency":false,"text":"I cannot breathe well"}
+{"script_id":"s0026","intent":"out_of_scope","slots":{},"persona":"disfluent","disfluency":true,"text":"book a doctor sorry can you refill my prescription"}
+{"script_id":"s0011","intent":"book","slots":{"patient_name":"Taylor Voss","phone":"5550198765","doctor":"Dr. Marcus Pell","date":"Friday","time":"nine"},"persona":"disfluent","disfluency":true,"text":"I need Dr. Marcus Pell on Thursday no Friday at nine for Taylor Voss"}
+{"script_id":"s0015","intent":"reschedule","slots":{"appointment_id":"A2044","date":"Wednesday","time":"ten thirty"},"persona":"brief","disfluency":false,"text":"move A2044 to Wednesday at ten thirty"}
+{"script_id":"s0010","intent":"cancel","slots":{"appointment_id":"A2044"},"persona":"verbose","disfluency":false,"text":"please cancel A2044"}
+{"script_id":"s0017","intent":"check_appointment","slots":{"patient_name":"Sam Ortega","phone":"5550144444"},"persona":"disfluent","disfluency":true,"text":"when is my visit I am Sam Ortega I mean yes Sam Ortega 5550144444"}
