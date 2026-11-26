@@ -12,6 +12,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_l
 from pydantic import BaseModel
 
 from models.asr_pool import AsrPool
+from models.llm_client import LlmClient
 from models.nlu_pool import NluScorer
 from models.onnx_pool import TurnScorer
 from models.vad_pool import VadEngine, VadPool
@@ -54,6 +55,7 @@ class AppContainer:
     asr_pool: AsrPool | None = None
     turn_scorer: TurnScorer | None = None
     nlu_scorer: NluScorer | None = None
+    llm_client: LlmClient | None = None
 
 
 class TurnwiseApp(FastAPI):
@@ -79,6 +81,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     asr_pool = _load_asr(resolved, metrics)
     turn_scorer = _load_turn(resolved)
     nlu_scorer = _load_nlu(resolved)
+    llm_client = LlmClient.unavailable(timeout_ms=resolved.llm_timeout_ms)
     container = AppContainer(
         settings=resolved,
         registry=registry,
@@ -93,6 +96,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         asr_pool=asr_pool,
         turn_scorer=turn_scorer,
         nlu_scorer=nlu_scorer,
+        llm_client=llm_client,
     )
 
     @asynccontextmanager

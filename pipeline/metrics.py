@@ -78,6 +78,21 @@ class StageMetrics:
     nlu_reject: Counter
     disambiguation: Counter
     repair_applied: Counter
+    fsm_rejects: Counter
+    fsm_transitions: Counter
+    confirm_explicit: Counter
+    repair_total: Counter
+    handoff_total: Counter
+    llm_seconds: Histogram
+    llm_timeouts: Counter
+    faq_ungrounded: Counter
+    proposal_rejects: Counter
+    calendar_seconds: Histogram
+    calendar_conflicts: Counter
+    calendar_errors: Counter
+    tool_filler: Counter
+    tool_retries: Counter
+    urgent_keyword: Counter
 
 
 def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
@@ -328,6 +343,87 @@ def build_stage_metrics(registry: CollectorRegistry) -> StageMetrics:
         repair_applied=Counter(
             "turnwise_repair_applied",
             "Utterances where a self-repair replaced an earlier slot span.",
+            registry=registry,
+        ),
+        fsm_rejects=Counter(
+            "turnwise_fsm_rejects",
+            "FSM events that failed a named guard or had no row.",
+            labelnames=("guard",),
+            registry=registry,
+        ),
+        fsm_transitions=Counter(
+            "turnwise_fsm_transitions",
+            "FSM transitions by from-state and next-state.",
+            labelnames=("state", "next"),
+            registry=registry,
+        ),
+        confirm_explicit=Counter(
+            "turnwise_confirm_explicit",
+            "Explicit confirmation prompts for a critical slot.",
+            registry=registry,
+        ),
+        repair_total=Counter(
+            "turnwise_repair",
+            "Repair asks by slot.",
+            labelnames=("slot",),
+            registry=registry,
+        ),
+        handoff_total=Counter(
+            "turnwise_handoff",
+            "Handoffs by reason.",
+            labelnames=("reason",),
+            registry=registry,
+        ),
+        llm_seconds=Histogram(
+            "turnwise_llm_seconds",
+            "LLM client wall time including executor wait.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        llm_timeouts=Counter(
+            "turnwise_llm_timeouts",
+            "LLM client calls that exceeded llm_timeout_ms.",
+            registry=registry,
+        ),
+        faq_ungrounded=Counter(
+            "turnwise_faq_ungrounded",
+            "FAQ replies emitted with zero chunk ids.",
+            registry=registry,
+        ),
+        proposal_rejects=Counter(
+            "turnwise_proposal_rejects",
+            "LLM proposals rejected by validators.",
+            registry=registry,
+        ),
+        calendar_seconds=Histogram(
+            "turnwise_calendar_seconds",
+            "Calendar tool wall time including executor wait.",
+            buckets=_STAGE_BUCKETS,
+            registry=registry,
+        ),
+        calendar_conflicts=Counter(
+            "turnwise_calendar_conflicts",
+            "Booking writes that lost the slot version.",
+            registry=registry,
+        ),
+        calendar_errors=Counter(
+            "turnwise_calendar_errors",
+            "Calendar open or write failures.",
+            registry=registry,
+        ),
+        tool_filler=Counter(
+            "turnwise_tool_filler",
+            "Tool calls that emitted a filler SAY before completing.",
+            registry=registry,
+        ),
+        tool_retries=Counter(
+            "turnwise_tool_retries",
+            "Calendar retries after timeout or CalendarError.",
+            registry=registry,
+        ),
+        urgent_keyword=Counter(
+            "turnwise_urgent_keyword",
+            "Utterances that matched the deterministic urgent keyword list.",
             registry=registry,
         ),
     )

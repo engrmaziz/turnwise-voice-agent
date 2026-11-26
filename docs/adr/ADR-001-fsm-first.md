@@ -32,4 +32,4 @@ Closed-set entities (doctors, services) resolve against the catalog. Raw ASR tex
 - Paraphrase is capped and optional. The state transition is already decided before the model speaks.
 - Evaluation of task success reads the database, not the transcript the model produced.
 
-No dialogue machine is implemented yet. This ADR is the constraint that machine has to satisfy.
+The table-driven machine in Phase 6 (`dialogue/transitions.toml`, `dialogue/table.py`) is that writer. Calendar writes go through `tools/calendar.py` from `EXECUTE` only. Proposals use the same validators as NLU. Urgent keywords escalate without the classifier.

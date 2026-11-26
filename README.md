@@ -4,7 +4,7 @@ A fully local, streaming voice agent where deterministic dialogue control owns c
 
 Clinic receptionist: book, reschedule, and cancel appointments, answer FAQs, escalate urgent symptoms, hand off to a human. $0 to run after the hardware you already own. No hosted speech or model API on the default path.
 
-**This checkout is Phase 0 through Phase 5.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, and spoken NLU are in. There is no dialogue machine or TTS yet. Real ASR weights are not pinned (ADR-006 blocked). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet.
+**This checkout is Phase 0 through Phase 6.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, and SQLite bookings are in. There is no TTS yet. The LLM client is a stub. Real ASR weights are not pinned (ADR-006 blocked). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet.
 
 ## Scope
 
@@ -28,7 +28,7 @@ HIPAA certification or a compliance claim. Server-side acoustic echo cancellatio
 
 ## SLO targets (unmet)
 
-Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number below has been measured on a call. Measured latencies so far: in-process stage hop, resample p50, Silero VAD p50, ITN p50, temporal p50, turn-classifier p50, synthetic cancel latency, and NLU student p50 (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/results/phase2.md`](docs/results/phase2.md), [`docs/results/phase3.md`](docs/results/phase3.md), [`docs/results/phase4.md`](docs/results/phase4.md), [`docs/results/phase5.md`](docs/results/phase5.md)).
+Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product number below has been measured on a call. Measured latencies so far: in-process stage hop, resample p50, Silero VAD p50, ITN p50, temporal p50, turn-classifier p50, synthetic cancel latency, NLU student p50, and the tool-filler timestamp delta (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/results/phase2.md`](docs/results/phase2.md), [`docs/results/phase3.md`](docs/results/phase3.md), [`docs/results/phase4.md`](docs/results/phase4.md), [`docs/results/phase5.md`](docs/results/phase5.md), [`docs/results/phase6.md`](docs/results/phase6.md)).
 
 | Metric | Target |
 |---|---|
@@ -102,6 +102,12 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M5.3 golden set | done (`golden_incomplete`; 20-row CI fixture only) |
 | M5.4 joint student + NLU stage | done (see `docs/results/phase5.md`; slot F1 unpublished) |
 | M5.5 disfluency + phonetic resolve | done (sweep `untuned`) |
-| Phases 6–10 | not started |
+| M6.1 table-driven FSM + validators | done (see `docs/results/phase6.md`) |
+| M6.2 confirm policy + repair ladder | done |
+| M6.3 LLM stub, proposals, FAQ overlap | done (LLM binary blocked; ADR-009) |
+| M6.4 SQLite calendar + idempotency | done |
+| M6.5 tool timeouts + filler | done (filler_delta_ms 306.969) |
+| M6.6 urgent keywords | done (NLU cannot veto) |
+| Phases 7–10 | not started |
 
 Roadmap with acceptance lines: [`docs/ROADMAP.md`](docs/ROADMAP.md).

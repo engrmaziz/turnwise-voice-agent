@@ -99,6 +99,22 @@ class Settings(BaseSettings):
     phonetic_min_score: float = 0.82
     phonetic_margin: float = 0.05
     repair_markers: str = "no,sorry,i mean,actually"
+    repair_modality_after: int = 2
+    repair_handoff_after: int = 3
+    tool_filler_after_ms: int = 300
+    tool_hard_timeout_ms: int = 1500
+    tool_retry_limit: int = 1
+    confirm_explicit_below: float = 0.8
+    urgent_keywords: str = (
+        "chest pain,can't breathe,cannot breathe,cant breathe,"
+        "shortness of breath,passing out,fainted,stroke,suicidal"
+    )
+    regex_slots_enabled: bool = False
+    paraphrase_max_chars: int = 180
+    faq_min_score: float = 0.2
+    faq_path: str = "data/faq.md"
+    calendar_db_path: str = "data/turnwise.sqlite"
+    llm_timeout_ms: int = 2000
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -157,6 +173,13 @@ class Settings(BaseSettings):
         "nlu_timeout_ms",
         "nlu_feature_dim",
         "nlu_ngram",
+        "repair_modality_after",
+        "repair_handoff_after",
+        "tool_filler_after_ms",
+        "tool_hard_timeout_ms",
+        "tool_retry_limit",
+        "paraphrase_max_chars",
+        "llm_timeout_ms",
     )
     @classmethod
     def at_least_one(cls, value: int) -> int:
@@ -207,6 +230,8 @@ class Settings(BaseSettings):
         "nlu_min_intent_confidence",
         "phonetic_min_score",
         "phonetic_margin",
+        "confirm_explicit_below",
+        "faq_min_score",
     )
     @classmethod
     def unit_interval(cls, value: float) -> float:
@@ -233,7 +258,13 @@ class Settings(BaseSettings):
             raise ValueError("unknown timezone") from exc
         return stripped
 
-    @field_validator("clinic_name", "doctor_roster_path", "asr_stub_transcript")
+    @field_validator(
+        "clinic_name",
+        "doctor_roster_path",
+        "asr_stub_transcript",
+        "faq_path",
+        "calendar_db_path",
+    )
     @classmethod
     def named_non_empty(cls, value: str) -> str:
         stripped = value.strip()

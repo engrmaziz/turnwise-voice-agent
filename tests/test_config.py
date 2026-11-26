@@ -44,6 +44,9 @@ def test_default_backchannel_list_excludes_yes() -> None:
     assert settings.nlu_timeout_ms == 40
     assert settings.phonetic_min_score == 0.82
     assert settings.phonetic_margin == 0.05
+    assert settings.regex_slots_enabled is False
+    assert settings.repair_handoff_after == 3
+    assert settings.tool_filler_after_ms == 300
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:

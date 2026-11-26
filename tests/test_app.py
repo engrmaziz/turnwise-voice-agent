@@ -43,6 +43,11 @@ def test_health_and_empty_ttfa_histogram(settings: Settings) -> None:
     assert "turnwise_nlu_reject_total" in body
     assert "turnwise_disambiguation_total" in body
     assert "turnwise_repair_applied_total" in body
+    assert "turnwise_fsm_rejects_total" in body
+    assert "turnwise_fsm_transitions_total" in body
+    assert "turnwise_calendar_conflicts_total" in body
+    assert "turnwise_urgent_keyword_total" in body
+    assert "turnwise_faq_ungrounded_total" in body
     assert "turnwise_ttfa_seconds_count 0.0" in body
     assert "turnwise_ttfa_content_seconds_count 0.0" in body
 

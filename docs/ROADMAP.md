@@ -59,16 +59,19 @@ Done. Measured and blocked rows: `docs/results/phase5.md`. Golden is `golden_inc
 
 ## Phase 6 — Dialogue manager
 
+Done. Measured rows: `docs/results/phase6.md`. LLM client is a stub (T1.4.3 blocked). Calendar, FAQ overlap, and tool timeouts landed here per `docs/plan/06_phase_dialogue_tools.md`.
+
 - Transitions are a table. A Mermaid diagram is generated from that table.
 - Model output that changes state, does date math, checks availability, writes a booking, or decides urgency fails a test.
 - Proposals that do not validate leave the state unchanged.
 - Two failed attempts on a slot change the ask ("spell that", "one digit at a time"). Three failures hand off with a summary.
+- SQLite bookings use `BEGIN IMMEDIATE` and an idempotency key of `session_id` + `turn_id`. A retried write does not double-book.
+- A slot taken between offer and confirm produces a new offer.
+- A tool past 300 ms emits a filler SAY (`filler=1`). TTFA histograms stay empty until Phase 7 TTS.
 
 ## Phase 7 — Tools
 
-- SQLite bookings use `BEGIN IMMEDIATE` and an idempotency key of `session_id` + `turn_id`. A retried write does not double-book.
-- A slot taken between offer and confirm produces a new offer.
-- A tool past 300 ms plays a cached filler. Time-to-first-audio and time-to-first-content-audio are both recorded.
+Done in Phase 6 (`docs/plan/06_phase_dialogue_tools.md`, `docs/results/phase6.md`). TTFA and TTFA-content histograms stay empty until TTS. Filler SAY already sets `filler=1` so those histograms can ignore filler frames.
 
 ## Phase 8 — Speech out
 

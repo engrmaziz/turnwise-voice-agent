@@ -1,0 +1,206 @@
+# Appendix C is the spec. Guards and actions are named functions, not eval.
+
+states = [
+  "GREET",
+  "IDENTIFY_PATIENT",
+  "COLLECT_INTENT",
+  "COLLECT_SLOTS",
+  "CONFIRM",
+  "EXECUTE",
+  "CLOSE",
+  "URGENT",
+  "HANDOFF",
+  "FAQ",
+]
+
+[[row]]
+state = "*"
+except = ["URGENT"]
+event = "urgent_keyword"
+guard = "kw"
+action = "urgent_message"
+next_state = "URGENT"
+
+[[row]]
+state = "*"
+except = ["HANDOFF"]
+event = "speak_to_human"
+guard = "none"
+action = "handoff"
+next_state = "HANDOFF"
+
+[[row]]
+state = "*"
+except = ["HANDOFF"]
+event = "offer_human_yes"
+guard = "offer_latched"
+action = "handoff"
+next_state = "HANDOFF"
+
+[[row]]
+state = "GREET"
+event = "session_start"
+guard = "none"
+action = "say_greeting"
+next_state = "IDENTIFY_PATIENT"
+
+[[row]]
+state = "IDENTIFY_PATIENT"
+event = "nlu"
+guard = "repair_handoff"
+action = "handoff"
+next_state = "HANDOFF"
+
+[[row]]
+state = "IDENTIFY_PATIENT"
+event = "nlu"
+guard = "valid_identity"
+action = "set_patient"
+next_state = "COLLECT_INTENT"
+
+[[row]]
+state = "IDENTIFY_PATIENT"
+event = "nlu"
+guard = "none"
+action = "ask_slot"
+next_state = "IDENTIFY_PATIENT"
+
+[[row]]
+state = "COLLECT_INTENT"
+event = "nlu"
+guard = "known_intent"
+action = "set_intent"
+next_state = "COLLECT_SLOTS"
+
+[[row]]
+state = "COLLECT_INTENT"
+event = "nlu"
+guard = "faq_intent"
+action = "faq_enter"
+next_state = "FAQ"
+
+[[row]]
+state = "COLLECT_INTENT"
+event = "nlu"
+guard = "none"
+action = "ask_intent"
+next_state = "COLLECT_INTENT"
+
+[[row]]
+state = "COLLECT_SLOTS"
+event = "nlu"
+guard = "slot_invalid"
+action = "repair"
+next_state = "COLLECT_SLOTS"
+
+[[row]]
+state = "COLLECT_SLOTS"
+event = "nlu"
+guard = "schema_complete"
+action = "confirm"
+next_state = "CONFIRM"
+
+[[row]]
+state = "COLLECT_SLOTS"
+event = "nlu"
+guard = "schema_missing"
+action = "ask_slot"
+next_state = "COLLECT_SLOTS"
+
+[[row]]
+state = "COLLECT_SLOTS"
+event = "nlu"
+guard = "none"
+action = "ask_slot"
+next_state = "COLLECT_SLOTS"
+
+[[row]]
+state = "CONFIRM"
+event = "yes"
+guard = "bind_played"
+action = "execute"
+next_state = "EXECUTE"
+
+[[row]]
+state = "CONFIRM"
+event = "yes"
+guard = "none"
+action = "confirm"
+next_state = "CONFIRM"
+
+[[row]]
+state = "CONFIRM"
+event = "no"
+guard = "none"
+action = "clear_pending"
+next_state = "COLLECT_SLOTS"
+
+[[row]]
+state = "EXECUTE"
+event = "tool_ok"
+guard = "none"
+action = "say_done"
+next_state = "CLOSE"
+
+[[row]]
+state = "EXECUTE"
+event = "tool_conflict"
+guard = "none"
+action = "reoffer"
+next_state = "COLLECT_SLOTS"
+
+[[row]]
+state = "EXECUTE"
+event = "tool_error"
+guard = "retry_exhausted"
+action = "handoff"
+next_state = "HANDOFF"
+
+[[row]]
+state = "EXECUTE"
+event = "tool_error"
+guard = "none"
+action = "execute"
+next_state = "EXECUTE"
+
+[[row]]
+state = "FAQ"
+event = "faq_hit"
+guard = "faq_hit"
+action = "say_faq"
+next_state = "COLLECT_INTENT"
+
+[[row]]
+state = "FAQ"
+event = "faq_miss"
+guard = "none"
+action = "say_faq_refuse"
+next_state = "COLLECT_INTENT"
+
+[[row]]
+state = "CLOSE"
+event = "nlu"
+guard = "known_intent"
+action = "set_intent"
+next_state = "COLLECT_SLOTS"
+
+[[row]]
+state = "CLOSE"
+event = "goodbye"
+guard = "none"
+action = "say_goodbye"
+next_state = "CLOSE"
+
+[[row]]
+state = "URGENT"
+event = "any"
+guard = "none"
+action = "urgent_message"
+next_state = "URGENT"
+
+[[row]]
+state = "HANDOFF"
+event = "any"
+guard = "none"
+action = "handoff"
+next_state = "HANDOFF"
