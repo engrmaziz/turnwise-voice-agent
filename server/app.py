@@ -95,11 +95,7 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
     turn_scorer = _load_turn(resolved)
     nlu_scorer = _load_nlu(resolved)
     emotion_scorer = _load_emotion(resolved)
-    llm_client = LlmClient.unavailable(
-        timeout_ms=resolved.llm_timeout_ms,
-        max_batch=resolved.llm_max_batch,
-    )
-    llm_client.queue_wait_observe = metrics.llm_queue_wait.observe
+    llm_client = _load_llm(resolved, metrics)
     load_templates()
     tts_pool = load_tts_pool(resolved)
     phrases = warmup_texts(resolved)
@@ -195,6 +191,35 @@ def create_app(settings: Settings | None = None) -> TurnwiseApp:
         return Response(content=payload, media_type=CONTENT_TYPE_LATEST)
 
     return app
+
+
+def _load_llm(settings: Settings, metrics: StageMetrics) -> LlmClient:
+    backend = settings.llm_backend.strip()
+    if backend in {"", "stub"}:
+        client = LlmClient.unavailable(
+            timeout_ms=settings.llm_timeout_ms,
+            max_batch=settings.llm_max_batch,
+        )
+        client.queue_wait_observe = metrics.llm_queue_wait.observe
+        return client
+    try:
+        if backend == "ollama":
+            client = LlmClient.ollama(
+                host=settings.llm_ollama_host,
+                model=settings.llm_ollama_model,
+                timeout_ms=settings.llm_timeout_ms,
+                max_batch=settings.llm_max_batch,
+            )
+        else:
+            raise ValueError(f"unknown llm_backend {backend}")
+    except (OSError, FileNotFoundError, ValueError, RuntimeError) as exc:
+        _LOG.warning("llm_load_failed", backend=backend, error=str(exc))
+        client = LlmClient.unavailable(
+            timeout_ms=settings.llm_timeout_ms,
+            max_batch=settings.llm_max_batch,
+        )
+    client.queue_wait_observe = metrics.llm_queue_wait.observe
+    return client
 
 
 def _load_asr(settings: Settings, metrics: StageMetrics) -> AsrPool:

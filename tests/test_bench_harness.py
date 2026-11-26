@@ -51,7 +51,9 @@ def test_local_agreement_2_prefix() -> None:
 
 def test_missing_binary_is_blocked(settings: Settings, tmp_path: Path) -> None:
     missing = tmp_path / "no-such-llama"
-    configured = settings.model_copy(update={"bench_llm_command": str(missing)})
+    configured = settings.model_copy(
+        update={"bench_llm_command": str(missing), "llm_backend": ""}
+    )
     rows = measure_llm(configured)
     assert rows
     assert all(row.status == "blocked" for row in rows)

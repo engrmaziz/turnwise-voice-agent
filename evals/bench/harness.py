@@ -95,11 +95,13 @@ def ok_row(
     )
 
 
-def cell_ms(row: BenchRow) -> str:
+def cell_ms(row: BenchRow, value: float | None = None) -> str:
     """Human cell. Blocked and missing rows never render as 0."""
-    if row.status != "ok" or row.p50_ms is None:
+    sample = row.p50_ms if value is None else value
+    if row.status != "ok" or sample is None:
         return row.status
-    return f"{row.p50_ms:.1f}"
+    suffix = " tok/s" if row.extra.get("unit") == "tokens_per_second" else ""
+    return f"{sample:.1f}{suffix}"
 
 
 def render_markdown(report: BenchReport) -> str:
@@ -125,8 +127,8 @@ def render_markdown(report: BenchReport) -> str:
     ]
     for row in report.rows:
         version = row.version if row.version is not None else ""
-        p50 = f"{row.p50_ms:.1f}" if row.status == "ok" and row.p50_ms is not None else row.status
-        p95 = f"{row.p95_ms:.1f}" if row.status == "ok" and row.p95_ms is not None else row.status
+        p50 = cell_ms(row, row.p50_ms)
+        p95 = cell_ms(row, row.p95_ms)
         reason = row.reason or ""
         lines.append(f"| `{row.name}` | {row.status} | {version} | {p50} | {p95} | {reason} |")
     lines.append("")

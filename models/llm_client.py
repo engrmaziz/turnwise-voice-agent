@@ -7,14 +7,19 @@ import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 
 import structlog
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from models.llm_ollama import OllamaError
+from models.llm_ollama import generate as ollama_generate
+
 _LOG = structlog.get_logger("models.llm_client")
 
 QueueWait = Callable[[float], None]
+LlmFn = Callable[[str, type[BaseModel] | None], str]
 
 
 class LlmGrammarError(Exception):
@@ -23,6 +28,11 @@ class LlmGrammarError(Exception):
 
 class LlmTimeoutError(Exception):
     """The client exceeded llm_timeout_ms."""
+
+
+class _Ping(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ok: bool
 
 
 class ProposalSchema(BaseModel):
@@ -34,8 +44,7 @@ class ProposalSchema(BaseModel):
     slots: dict[str, str]
 
 
-LlmFn = Callable[[str], str]
-_Job = tuple[int, int, asyncio.Future[str], str, float]
+_Job = tuple[int, int, asyncio.Future[str], str, float, type[BaseModel] | None]
 
 
 @dataclass(slots=True)
@@ -76,7 +85,7 @@ class LlmClient:
         sleep_s: float = 0.0,
         max_batch: int = 1,
     ) -> LlmClient:
-        def complete_sync(_prompt: str) -> str:
+        def complete_sync(_prompt: str, _schema: type[BaseModel] | None = None) -> str:
             if sleep_s > 0:
                 time.sleep(sleep_s)
             return response
@@ -86,6 +95,44 @@ class LlmClient:
             complete_sync=complete_sync,
             available=True,
             model_name="stub",
+            max_batch=max(1, max_batch),
+        )
+
+    @classmethod
+    def ollama(
+        cls,
+        *,
+        host: str,
+        model: str,
+        timeout_ms: int,
+        max_batch: int = 1,
+    ) -> LlmClient:
+        timeout_s = timeout_ms / 1000.0
+
+        def complete_sync(prompt: str, schema: type[BaseModel] | None = None) -> str:
+            return ollama_generate(
+                host,
+                model,
+                prompt,
+                timeout_s=timeout_s,
+                schema=schema,
+            )
+
+        try:
+            ollama_generate(
+                host,
+                model,
+                'Reply with {"ok": true}.',
+                timeout_s=max(timeout_s, 30.0),
+                schema=_Ping,
+            )
+        except OllamaError as exc:
+            raise FileNotFoundError(f"ollama warmup failed: {exc}") from exc
+        return cls(
+            timeout_s=timeout_s,
+            complete_sync=complete_sync,
+            available=True,
+            model_name=f"ollama:{model}",
             max_batch=max(1, max_batch),
         )
 
@@ -104,7 +151,7 @@ class LlmClient:
         queue = self._ensure_queue()
         self._seq += 1
         priority = 0 if speaking else 1
-        await queue.put((priority, self._seq, future, prompt, queued))
+        await queue.put((priority, self._seq, future, prompt, queued, schema))
         self._ensure_workers()
         try:
             raw = await asyncio.wait_for(future, timeout=self.timeout_s)
@@ -141,7 +188,7 @@ class LlmClient:
         queue = self._ensure_queue()
         loop = asyncio.get_running_loop()
         while True:
-            _priority, _seq, future, prompt, queued = await queue.get()
+            _priority, _seq, future, prompt, queued, schema = await queue.get()
             waited = time.perf_counter() - queued
             observe = self.queue_wait_observe
             if observe is not None:
@@ -156,7 +203,7 @@ class LlmClient:
                 queue.task_done()
                 continue
             try:
-                raw = await loop.run_in_executor(None, sync, prompt)
+                raw = await loop.run_in_executor(None, partial(sync, prompt, schema))
             except Exception as exc:
                 if not future.done():
                     future.set_exception(exc)

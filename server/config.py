@@ -126,6 +126,9 @@ class Settings(BaseSettings):
     faq_path: str = "data/faq.md"
     calendar_db_path: str = "data/turnwise.sqlite"
     llm_timeout_ms: int = 2000
+    llm_backend: str = ""
+    llm_ollama_host: str = "http://127.0.0.1:11434"
+    llm_ollama_model: str = "qwen3.5:4b"
     tts_backend: str = ""
     tts_piper_onnx_path: str = "models/weights/piper/en_US-amy-low.onnx"
     tts_piper_config_path: str = "models/weights/piper/en_US-amy-low.onnx.json"
@@ -364,6 +367,14 @@ class Settings(BaseSettings):
         stripped = value.strip()
         if stripped not in {"", "stub", "zipformer", "whisper_la2"}:
             raise ValueError("asr_backend must be empty, stub, zipformer, or whisper_la2")
+        return stripped
+
+    @field_validator("llm_backend")
+    @classmethod
+    def known_llm_backend(cls, value: str) -> str:
+        stripped = value.strip()
+        if stripped not in {"", "stub", "ollama"}:
+            raise ValueError("llm_backend must be empty, stub, or ollama")
         return stripped
 
     @field_validator("tts_backend")

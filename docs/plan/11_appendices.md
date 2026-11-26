@@ -117,6 +117,9 @@ Environment prefix `TURNWISE_`. Types are Python types on `Settings`. STARTING P
 | `audio_retain_s` | int | 0 | Expiry when retain true | 10 T10.3.5 |
 | `load_n_max` | int | 16 | Load driver cap | 10 T10.2.1 |
 | `llm_max_batch` | int | 1 | Contention C | 10 T10.2.5 |
+| `llm_backend` | str | empty (unavailable) | `ollama` after a local model exists | 1 T1.4.3 |
+| `llm_ollama_host` | str | `http://127.0.0.1:11434` | Ollama HTTP | 1 T1.4.3 |
+| `llm_ollama_model` | str | `qwen3.5:4b` | Instruct 4B on this host | 1 T1.4.3 |
 
 ## B. Event types catalog
 

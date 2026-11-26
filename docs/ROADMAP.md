@@ -59,7 +59,7 @@ Done. Measured and blocked rows: `docs/results/phase5.md`. Golden is `golden_inc
 
 ## Phase 6 — Dialogue manager
 
-Done. Measured rows: `docs/results/phase6.md`. LLM client is a stub (T1.4.3 blocked). Calendar, FAQ overlap, and tool timeouts landed here per `docs/plan/06_phase_dialogue_tools.md`.
+Done. Measured rows: `docs/results/phase6.md`. LLM client is unavailable by default; Ollama `qwen3.5:4b` is optional (`docs/benchmarks.md`). Calendar, FAQ overlap, and tool timeouts landed here per `docs/plan/06_phase_dialogue_tools.md`.
 
 - Transitions are a table. A Mermaid diagram is generated from that table.
 - Model output that changes state, does date math, checks availability, writes a booking, or decides urgency fails a test.

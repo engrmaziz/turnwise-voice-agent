@@ -42,6 +42,9 @@ def settings() -> Settings:
         turn_onnx_path="models/weights/missing.onnx",
         turn_model_enabled=False,
         nlu_model_path="",
+        llm_backend="",
+        asr_backend="",
+        tts_backend="",
     )
 
 

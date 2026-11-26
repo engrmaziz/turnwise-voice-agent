@@ -34,7 +34,10 @@ def test_pii_field_names_split() -> None:
     assert settings.pii_field_names == frozenset({"phone", "dob"})
 
 
-def test_default_backchannel_list_excludes_yes() -> None:
+def test_default_backchannel_list_excludes_yes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TURNWISE_LLM_BACKEND", raising=False)
+    monkeypatch.delenv("TURNWISE_ASR_BACKEND", raising=False)
+    monkeypatch.delenv("TURNWISE_TTS_BACKEND", raising=False)
     settings = Settings()
     assert "yes" not in settings.backchannel_list
     assert settings.backchannel_list == ("mm-hmm", "mhm", "uh-huh", "yeah", "ok", "okay")
@@ -48,6 +51,8 @@ def test_default_backchannel_list_excludes_yes() -> None:
     assert settings.repair_handoff_after == 3
     assert settings.tool_filler_after_ms == 300
     assert settings.asr_backend == ""
+    assert settings.llm_backend == ""
+    assert settings.llm_ollama_model == "qwen3.5:4b"
     assert settings.asr_zipformer_tokens_path == "models/weights/zipformer/tokens.txt"
     assert settings.tts_backend == ""
     assert settings.tts_piper_onnx_path == "models/weights/piper/en_US-amy-low.onnx"

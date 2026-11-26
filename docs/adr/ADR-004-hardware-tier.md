@@ -9,11 +9,11 @@ ADR-003 keeps the model stack Proposed until a bench on this machine records ASR
 
 Host: `Windows-10-10.0.26300-SP0`
 Python: `3.11.9`
-JSON: `docs/results/bench/20261126T192516Z.json`
+JSON: `docs/results/bench/20261126T200406Z.json`
 
 ## Decision
 
-The hardware tier is **blocked**. Missing measured rows: LLM TTFT. ADR-003 stays Proposed. The next bench that fills those rows rewrites this ADR from the new JSON.
+The operator machine is **16 GB+**. nvidia-smi VRAM 24 GB ADR-003 stays Proposed until a follow-up ADR names exact builds.
 
 ## Consequences
 

@@ -18,8 +18,9 @@ def test_health_200_with_empty_model_dir(tmp_path: Path, settings: Settings) -> 
             "nlu_model_path": "",
             "emotion_model_path": "",
             "emotion_model_enabled": False,
-            "asr_backend": "",
-            "tts_backend": "",
+                "asr_backend": "",
+                "tts_backend": "",
+                "llm_backend": "",
         }
     )
     app = create_app(configured)
@@ -67,3 +68,19 @@ def test_health_200_when_piper_onnx_missing(tmp_path: Path, settings: Settings) 
         assert health.status_code == 200
         body = health.json()
         assert body["degraded_tts"] is True
+
+
+def test_health_200_when_ollama_host_down(settings: Settings) -> None:
+    configured = settings.model_copy(
+        update={
+            "llm_backend": "ollama",
+            "llm_ollama_host": "http://127.0.0.1:1",
+            "llm_timeout_ms": 200,
+        }
+    )
+    app = create_app(configured)
+    with TestClient(app) as client:
+        health = client.get("/health")
+        assert health.status_code == 200
+        body = health.json()
+        assert body["degraded_llm"] is True
