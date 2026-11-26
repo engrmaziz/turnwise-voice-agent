@@ -167,6 +167,27 @@ def offer_slot(path: Path, *, doctor_id: str, start_iso: str) -> CalendarResult:
         conn.close()
 
 
+def list_appointments(path: Path) -> list[dict[str, str]]:
+    """Return every appointment row. Used by the eval DB judge, not by the FSM."""
+    conn = _open(path)
+    try:
+        rows = conn.execute(
+            "SELECT id, doctor_id, start_iso, status, slots_json FROM appointments ORDER BY id"
+        ).fetchall()
+        return [
+            {
+                "id": str(row[0]),
+                "doctor_id": str(row[1]),
+                "start_iso": str(row[2]),
+                "status": str(row[3]),
+                "slots_json": str(row[4]),
+            }
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
 def appointment_count(path: Path) -> int:
     conn = _open(path)
     try:

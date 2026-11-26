@@ -72,10 +72,10 @@ Demo-able outcome: ten scripted scenarios produce ten DB judgements, at least on
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T9.1.1 | Pydantic schema and YAML loader | `evals/schema.py` | T6.1.2 | 3 | forward | `tests/test_scenario_schema.py` rejects an unknown intent and a missing `urgent` boolean |
-| T9.1.2 | Five fully worked examples matching appendix F | `evals/scenarios/examples/` | T9.1.1 | 3 | forward | Each example validates. The five ids are `book_happy`, `barge_mid_confirm`, `noisy_name`, `urgent_breathe`, `faq_hours` |
-| T9.1.3 | Scripted caller: a list of utterances timed on the virtual clock | `evals/caller_scripted.py` | T9.1.2, T7.4.5 | 5 | forward | `tests/test_scripted_book.py` books the expected doctor and time. `tests/test_scripted_fail.py` expects no row when the caller hangs up early |
-| T9.1.4 | Ten-scenario smoke list for the week-6 slice and for CI | `evals/scenarios/smoke.yaml` | T9.1.3 | 3 | forward | Ten ids, all `caller: scripted`, mix of book, cancel, faq, urgent |
+| T9.1.1 | Pydantic schema and YAML loader | `evals/schema.py` | T6.1.2 | 3 | done | `tests/test_scenario_schema.py` rejects an unknown intent and a missing `urgent` boolean |
+| T9.1.2 | Five fully worked examples matching appendix F | `evals/scenarios/examples/` | T9.1.1 | 3 | done | Each example validates. The five ids are `book_happy`, `barge_mid_confirm`, `noisy_name`, `urgent_breathe`, `faq_hours` |
+| T9.1.3 | Scripted caller: a list of utterances timed on the virtual clock | `evals/caller_scripted.py` | T9.1.2, T7.4.5 | 5 | done | `tests/test_scripted_book.py` books the expected doctor and time. `tests/test_scripted_fail.py` expects no row when the caller hangs up early |
+| T9.1.4 | Ten-scenario smoke list for the week-6 slice and for CI | `evals/scenarios/smoke.yaml` | T9.1.3 | 3 | done | Ten ids, all `caller: scripted`, mix of book, cancel, faq, urgent |
 
 Implementation notes. Scripted utterances are PCM files generated once by TTS in T9.1.3's setup, committed as 16 kHz fixtures if they are short, or generated in the test tmp dir from a text list if the TTS stub is in use. CI uses the stub: the agent under test in smoke mode can accept text injection behind `eval_text_inject` default false, true only in the eval process. Production WebSocket does not implement text injection. The test starts the app with the flag.
 
@@ -92,10 +92,10 @@ Demo-able outcome: one scenario with `caller: llm` completes on a developer mach
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T9.2.1 | LLM caller with a grammar for `{text, done}` | `evals/caller_llm.py` | T9.1.3, T6.3.1 | 5 | forward | Grammar rejects a reply that contains an ISO date the scenario did not allow the caller to know. The caller is a persona, not an oracle |
-| T9.2.2 | TTS render, rate stretch, MUSAN mix | `evals/render.py` | T9.2.1, T5.2.1 | 4 | forward | Rate 0.9 and 1.1 are the two matrix rates. SNR None means clean. Reuses `tests/test_snr.py` |
-| T9.2.3 | Barge-in injection at a scenario timestamp | `evals/barge_inject.py` | T9.2.2, T4.3.4 | 4 | forward | `tests/test_barge_inject.py` starts caller PCM while the agent is in `SAY` and expects `turnwise_barge_in_total` to move when the fixture is labeled `barge_in: true` |
-| T9.2.4 | Disfluency insertion on the text before TTS | `evals/disfluency_inject.py` | T9.2.1 | 2 | forward | Inserts one marker from the T5.5.1 list when `disfluency: true` |
+| T9.2.1 | LLM caller with a grammar for `{text, done}` | `evals/caller_llm.py` | T9.1.3, T6.3.1 | 5 | done | Grammar rejects a reply that contains an ISO date the scenario did not allow the caller to know. The caller is a persona, not an oracle |
+| T9.2.2 | TTS render, rate stretch, MUSAN mix | `evals/render.py` | T9.2.1, T5.2.1 | 4 | done | Rate 0.9 and 1.1 are the two matrix rates. SNR None means clean. Reuses `tests/test_snr.py` |
+| T9.2.3 | Barge-in injection at a scenario timestamp | `evals/barge_inject.py` | T9.2.2, T4.3.4 | 4 | done | `tests/test_barge_inject.py` starts caller PCM while the agent is in `SAY` and expects `turnwise_barge_in_total` to move when the fixture is labeled `barge_in: true` |
+| T9.2.4 | Disfluency insertion on the text before TTS | `evals/disfluency_inject.py` | T9.2.1 | 2 | done | Inserts one marker from the T5.5.1 list when `disfluency: true` |
 
 Implementation notes. The LLM caller must not receive the database state. It receives the scenario goal in natural language and the last agent text. If it says `done: true` early, the judge still looks at the database. A polite hang-up with no booking is a task failure for `goal: book`.
 
@@ -112,10 +112,10 @@ Demo-able outcome: a booking with the wrong doctor is `success: false` even if t
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T9.3.1 | DB judge for book, reschedule, cancel, check, faq, urgent, handoff | `evals/judge_db.py` | T9.1.3, T6.4.4 | 5 | forward | Table-driven tests in `tests/test_judge_db.py` for each goal. FAQ success is "a chunk id was cited and the refusal template was not used", or the reverse for empty retrieval |
-| T9.3.2 | Critical-slot compare uses confirmed values | `evals/judge_db.py` | T9.3.1, T6.2.1 | 3 | forward | Yes to a wrong readback is failure even if SQLite stored that wrong value. The expected slots are the scenario's, not the agent's belief |
-| T9.3.3 | Soft judge, politeness and clarity only, off on CI | `evals/judge_soft.py` | T9.3.1 | 3 | forward | The combined report has `task_success` from T9.3.1 and `soft` nested. A test asserts `task_success` is independent of a stub soft score of 0 |
-| T9.3.4 | FAQ hallucination: reply with zero chunk ids is a fail | `evals/judge_db.py` | T9.3.1, T6.3.3 | 2 | forward | The ungrounded counter plus the judge agree |
+| T9.3.1 | DB judge for book, reschedule, cancel, check, faq, urgent, handoff | `evals/judge_db.py` | T9.1.3, T6.4.4 | 5 | done | Table-driven tests in `tests/test_judge_db.py` for each goal. FAQ success is "a chunk id was cited and the refusal template was not used", or the reverse for empty retrieval |
+| T9.3.2 | Critical-slot compare uses confirmed values | `evals/judge_db.py` | T9.3.1, T6.2.1 | 3 | done | Yes to a wrong readback is failure even if SQLite stored that wrong value. The expected slots are the scenario's, not the agent's belief |
+| T9.3.3 | Soft judge, politeness and clarity only, off on CI | `evals/judge_soft.py` | T9.3.1 | 3 | done | The combined report has `task_success` from T9.3.1 and `soft` nested. A test asserts `task_success` is independent of a stub soft score of 0 |
+| T9.3.4 | FAQ hallucination: reply with zero chunk ids is a fail | `evals/judge_db.py` | T9.3.1, T6.3.3 | 2 | done | The ungrounded counter plus the judge agree |
 
 Implementation notes. Cancel success is the row gone or status `cancelled`. Reschedule success is the new instant. Urgent success is state `URGENT` and no appointment written. Handoff success is state `HANDOFF` and a summary containing only confirmed slots.
 
@@ -132,10 +132,10 @@ Demo-able outcome: the driver prints elapsed wall time and 900 judgements, or a 
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T9.4.1 | Metric aggregation matching appendix E | `evals/metrics.py` | T9.3.3, T4.4.2, T7.4.5 | 5 | forward | A fixture of 10 synthetic judgements produces the same p50 the formula specifies. TTFA content is separate |
-| T9.4.2 | Virtual-clock matrix driver | `evals/run_matrix.py` | T9.4.1, T9.1.4 | 6 | forward | Default N is 900. The JSON includes `n`, `elapsed_s`, `time_scale`. A test runs N=2 |
-| T9.4.3 | Real-time subset | `evals/run_realtime.py` | T9.4.2, T4.4.1 | 4 | forward | N=`eval_realtime_n` 30. TTFA histograms are scraped from the app. Results file labels them `realtime` |
-| T9.4.4 | Render `docs/results/phase9.md` from JSON | `evals/render_results.py` | T9.4.2, T9.4.3 | 2 | forward | No number in the markdown lacks a JSON key |
+| T9.4.1 | Metric aggregation matching appendix E | `evals/metrics.py` | T9.3.3, T4.4.2, T7.4.5 | 5 | done | A fixture of 10 synthetic judgements produces the same p50 the formula specifies. TTFA content is separate |
+| T9.4.2 | Virtual-clock matrix driver | `evals/run_matrix.py` | T9.4.1, T9.1.4 | 6 | done | Default N is 900. The JSON includes `n`, `elapsed_s`, `time_scale`. A test runs N=2 |
+| T9.4.3 | Real-time subset | `evals/run_realtime.py` | T9.4.2, T4.4.1 | 4 | done | N=`eval_realtime_n` 30. TTFA histograms are scraped from the app. Results file labels them `realtime` |
+| T9.4.4 | Render `docs/results/phase9.md` from JSON | `evals/render_results.py` | T9.4.2, T9.4.3 | 2 | done | No number in the markdown lacks a JSON key |
 
 Implementation notes. If 900 virtual calls do not finish in the operator's available window, they lower `eval_matrix_n` and the gate for "full matrix" is unmet while the smoke gate can still pass. This plan does not call 900 real-time calls an overnight job.
 
@@ -152,12 +152,12 @@ Demo-able outcome: `docs/results/phase9_ablations.md` has five sections, each wi
 
 | Task | Description | Files | Depends on | Hours | Status | Acceptance |
 |---|---|---|---|---|---|---|
-| T9.5.1 | Silence-only versus hybrid endpointing | `evals/ablate_endpoint.py` | T9.4.2, T4.1.3 | 3 | forward | Flag `turn_model_enabled` false versus true. Early-cutoff and response-gap columns |
-| T9.5.2 | Hotword bias on versus off | `evals/ablate_bias.py` | T9.4.2, T3.3.3 | 3 | forward | Entity WER and task success. `unsupported` if the backend has no API |
-| T9.5.3 | NLU trained on clean text versus ASR output | `evals/ablate_nlu.py` | T9.4.2, T5.4.4 | 4 | forward | Two student checkpoints. If the clean-text model was never trained, the row is `blocked` and the task that would have trained it is T5.4.1 with a `--clean` flag, 4 extra hours, slip |
-| T9.5.4 | FSM-first versus model-in-the-loop writer | `evals/ablate_fsm.py` | T9.4.2, T6.3.2 | 4 | forward | The loop writer is a test double that applies proposals without validators. It must not be importable from `server/app.py`. Task success and illegal-write count. Illegal writes on the FSM path must be 0 |
-| T9.5.5 | Zipformer versus Whisper+LocalAgreement-2 | `evals/ablate_asr.py` | T9.4.2, T3.2.3 | 3 | forward | TTFA and entity WER. Blocked if a backend is missing |
-| T9.5.6 | CI smoke: 30 scripted scenarios, fail on task-success drop or P95 TTFA rise when realtime artifacts exist | `.github/workflows/ci.yml`, `evals/smoke_gate.py` | T9.1.4, T9.4.1 | 4 | forward | Gates: smoke task success below the previous artifact's success minus 5 points, or realtime P95 TTFA above 1200 ms when the artifact is present. First run writes the artifact. Slot F1 is added only after T5.4.4 published a number |
+| T9.5.1 | Silence-only versus hybrid endpointing | `evals/ablate_endpoint.py` | T9.4.2, T4.1.3 | 3 | done | Flag `turn_model_enabled` false versus true. Early-cutoff and response-gap columns |
+| T9.5.2 | Hotword bias on versus off | `evals/ablate_bias.py` | T9.4.2, T3.3.3 | 3 | done | Entity WER and task success. `unsupported` if the backend has no API |
+| T9.5.3 | NLU trained on clean text versus ASR output | `evals/ablate_nlu.py` | T9.4.2, T5.4.4 | 4 | done | Two student checkpoints. If the clean-text model was never trained, the row is `blocked` and the task that would have trained it is T5.4.1 with a `--clean` flag, 4 extra hours, slip |
+| T9.5.4 | FSM-first versus model-in-the-loop writer | `evals/ablate_fsm.py` | T9.4.2, T6.3.2 | 4 | done | The loop writer is a test double that applies proposals without validators. It must not be importable from `server/app.py`. Task success and illegal-write count. Illegal writes on the FSM path must be 0 |
+| T9.5.5 | Zipformer versus Whisper+LocalAgreement-2 | `evals/ablate_asr.py` | T9.4.2, T3.2.3 | 3 | done | TTFA and entity WER. Blocked if a backend is missing |
+| T9.5.6 | CI smoke: 30 scripted scenarios, fail on task-success drop or P95 TTFA rise when realtime artifacts exist | `.github/workflows/ci.yml`, `evals/smoke_gate.py` | T9.1.4, T9.4.1 | 4 | done | Gates: smoke task success below the previous artifact's success minus 5 points, or realtime P95 TTFA above 1200 ms when the artifact is present. First run writes the artifact. Slot F1 is added only after T5.4.4 published a number |
 
 Implementation notes. The model-in-the-loop ablation is the dangerous one. The double lives under `evals/unsafe_llm_writer.py` and is imported only by the ablation driver. A grep test `tests/test_no_unsafe_writer_in_app.py` fails if `server/` imports it. The expected interview sentence is that this ablation is how we show the FSM earns its keep, and that the unsafe writer is not a product mode.
 
@@ -201,15 +201,15 @@ ADR-012 eval clocks: virtual versus realtime, which numbers may be quoted. READM
 
 ## 9.9 Exit criteria and phase gate
 
-- [ ] Schema rejects bad YAML.
-- [ ] Ten smoke scenarios run scripted.
-- [ ] DB judge covers every goal.
-- [ ] Soft judge cannot override.
-- [ ] Matrix JSON reports actual n.
-- [ ] Realtime n=30 or a recorded skip.
-- [ ] Five ablations are result-or-blocked.
-- [ ] Unsafe writer is not in `server/`.
-- [ ] CI smoke job exists.
+- [x] Schema rejects bad YAML.
+- [x] Ten smoke scenarios run scripted.
+- [x] DB judge covers every goal.
+- [x] Soft judge cannot override.
+- [x] Matrix JSON reports actual n.
+- [x] Realtime n=30 or a recorded skip.
+- [x] Five ablations are result-or-blocked.
+- [x] Unsafe writer is not in `server/`.
+- [x] CI smoke job exists.
 
 ## 9.10 Portfolio artifacts
 

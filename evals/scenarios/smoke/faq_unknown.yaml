@@ -1,0 +1,15 @@
+id: faq_unknown
+goal: faq
+intent: faq
+slots:
+  faq_query: "zyzzyva xylophone"
+persona: brief
+noise_snr_db: null
+speaking_rate: 1.0
+disfluency: false
+barge_in: false
+urgent: false
+clock: virtual
+caller: scripted
+script:
+  - "zyzzyva xylophone"

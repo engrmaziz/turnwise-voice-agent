@@ -1,0 +1,20 @@
+id: hangup_early
+goal: book
+intent: book
+slots:
+  patient_name: "Ada Lovelace"
+  phone: "5550100123"
+  doctor: "khan"
+  date: "2026-03-10"
+  time: "15:00"
+persona: brief
+noise_snr_db: null
+speaking_rate: 1.0
+disfluency: false
+barge_in: false
+urgent: false
+clock: virtual
+caller: scripted
+script:
+  - "I'd like to book with Doctor Khan next Tuesday at three"
+  - "Ada Lovelace"

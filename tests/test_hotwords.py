@@ -7,7 +7,7 @@ from nlp.hotwords import hotwords_for, load_roster
 
 def test_vocab_lists() -> None:
     doctors = load_roster(Path("data/doctors.txt"))
-    assert len(doctors) == 15
+    assert len(doctors) == 16
     clinic = "Turnwise Clinic"
     doctor_list = hotwords_for("doctor", clinic_name=clinic, doctors=doctors)
     assert doctor_list == list(doctors)

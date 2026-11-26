@@ -1,0 +1,25 @@
+id: barge_mid_confirm
+goal: book
+intent: book
+slots:
+  patient_name: "Ada Lovelace"
+  phone: "5550100123"
+  doctor: "khan"
+  date: "2026-03-11"
+  time: "15:00"
+persona: brief
+noise_snr_db: null
+speaking_rate: 1.0
+disfluency: false
+barge_in: true
+urgent: false
+clock: realtime
+caller: scripted
+barge_at_play_frame: 8
+barge_text: "wait Wednesday instead"
+script:
+  - "I'd like to book with Doctor Khan Tuesday at three"
+  - "Ada Lovelace"
+  - "five five five zero one zero zero one two three"
+  - "wait Wednesday instead"
+  - "yes"

@@ -4,7 +4,7 @@ A fully local, streaming voice agent where deterministic dialogue control owns c
 
 Clinic receptionist: book, reschedule, and cancel appointments, answer FAQs, escalate urgent symptoms, hand off to a human. $0 to run after the hardware you already own. No hosted speech or model API on the default path.
 
-**This checkout is Phase 0 through Phase 8.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub + phrase cache), play-ack TTFA, and paralinguistic courtesy (fusion + two-turn offer) are in. The LLM client is a stub. Real ASR, TTS, and emotion weights are not pinned (ADR-006, ADR-010, ADR-011 blocked). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number.
+**This checkout is Phase 0 through Phase 9.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub + phrase cache), play-ack TTFA, paralinguistic courtesy (fusion + two-turn offer), and a scripted eval harness (DB judge, virtual-clock matrix, CI smoke) are in. The LLM client is a stub. Real ASR, TTS, and emotion weights are not pinned (ADR-006, ADR-010, ADR-011 blocked). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number. Nine hundred virtual calls are not claimed.
 
 ## Scope
 
@@ -57,6 +57,7 @@ uv sync --all-groups
 uv run python scripts/download_silero_vad.py
 uv run pytest
 uv run python -m evals.bench
+uv run python -m evals.smoke_gate --write-only
 uv run python -m server
 ```
 
@@ -116,6 +117,11 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M8.2 late fusion + lexicon | done (no-audio path 0.4 / 0.6; weights sum 1.0) |
 | M8.3 two-turn offer, not handoff | done (keywords still win) |
 | M8.4 calibration / default-off | done (`not_collected`; ADR-011) |
-| Phases 9–10 | not started |
+| M9.1 scenario schema + scripted caller | done (see [`docs/results/phase9.md`](docs/results/phase9.md)) |
+| M9.2 spoken caller / render / barge inject | done (LLM caller blocked; T1.4.3) |
+| M9.3 DB judge; soft cannot override | done |
+| M9.4 virtual matrix + realtime skip | done (actual n in JSON; ADR-012) |
+| M9.5 ablations + CI smoke | done (result-or-blocked; unsafe writer not in `server/`) |
+| Phase 10 | not started |
 
 Roadmap with acceptance lines: [`docs/ROADMAP.md`](docs/ROADMAP.md).

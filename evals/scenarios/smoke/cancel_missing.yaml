@@ -1,0 +1,17 @@
+id: cancel_missing
+goal: cancel
+intent: cancel
+slots:
+  patient_name: "Ada Lovelace"
+  phone: "5550100123"
+  date: "2026-03-10"
+persona: brief
+noise_snr_db: null
+speaking_rate: 1.0
+disfluency: false
+barge_in: false
+urgent: false
+clock: virtual
+caller: scripted
+script:
+  - "cancel my visit"

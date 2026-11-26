@@ -68,6 +68,11 @@ def test_default_backchannel_list_excludes_yes() -> None:
         + settings.fuse_w_barge
         == 1.0
     )
+    assert settings.eval_text_inject is False
+    assert settings.eval_soft_judge is False
+    assert settings.eval_time_scale == 0.0
+    assert settings.eval_matrix_n == 900
+    assert settings.eval_smoke_n == 30
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:

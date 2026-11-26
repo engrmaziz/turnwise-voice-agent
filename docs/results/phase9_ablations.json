@@ -1,0 +1,57 @@
+{
+  "endpoint": {
+    "name": "endpoint_silence_vs_hybrid",
+    "status": "blocked",
+    "reason": "matrix_n_not_900",
+    "n": 0,
+    "method": "turn_model_enabled false versus true",
+    "columns": [
+      "early_cutoff",
+      "response_gap"
+    ]
+  },
+  "bias": {
+    "name": "hotword_bias",
+    "status": "unsupported",
+    "reason": "asr_backend_has_no_bias_api",
+    "n": 0,
+    "method": "biasing on versus off",
+    "columns": [
+      "entity_wer",
+      "task_success"
+    ]
+  },
+  "nlu": {
+    "name": "nlu_clean_vs_asr",
+    "status": "blocked",
+    "reason": "clean_text_student_never_trained",
+    "n": 0,
+    "method": "two student checkpoints; T5.4.1 --clean is slip",
+    "columns": [
+      "slot_f1",
+      "task_success"
+    ],
+    "nlu_model_path": ""
+  },
+  "fsm": {
+    "name": "fsm_vs_loop_writer",
+    "status": "ok",
+    "n": 1,
+    "method": "unsafe writer is a test double, not a product mode",
+    "fsm_illegal_writes": 0,
+    "loop_illegal_writes": 1,
+    "eval_text_inject_default": false
+  },
+  "asr": {
+    "name": "zipformer_vs_whisper_la2",
+    "status": "blocked",
+    "reason": "missing_asr:import_sherpa,import_whisper",
+    "n": 0,
+    "method": "TTFA and entity WER; ADR-006 comparison",
+    "asr_backend": "",
+    "columns": [
+      "ttfa",
+      "entity_wer"
+    ]
+  }
+}

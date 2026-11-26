@@ -23,3 +23,5 @@ jobs:
         run: uv run mypy server pipeline models dialogue nlp tools evals training tests
       - name: Test
         run: uv run pytest
+      - name: Eval smoke
+        run: uv run python -m evals.smoke_gate --write-only --artifact docs/results/smoke_artifact.json

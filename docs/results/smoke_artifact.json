@@ -1,0 +1,67 @@
+{
+  "n": 10,
+  "task_success": 0.9,
+  "rows": [
+    {
+      "id": "book_happy",
+      "success": true,
+      "reason": "booked",
+      "state": "CLOSE"
+    },
+    {
+      "id": "barge_mid_confirm",
+      "success": true,
+      "reason": "booked",
+      "state": "CLOSE"
+    },
+    {
+      "id": "noisy_name",
+      "success": true,
+      "reason": "booked",
+      "state": "CLOSE"
+    },
+    {
+      "id": "urgent_breathe",
+      "success": true,
+      "reason": "urgent",
+      "state": "URGENT"
+    },
+    {
+      "id": "faq_hours",
+      "success": true,
+      "reason": "faq_grounded",
+      "state": "COLLECT_INTENT"
+    },
+    {
+      "id": "faq_unknown",
+      "success": true,
+      "reason": "faq_refuse",
+      "state": "COLLECT_INTENT"
+    },
+    {
+      "id": "hangup_early",
+      "success": false,
+      "reason": "no_appointment",
+      "state": "CONFIRM"
+    },
+    {
+      "id": "speak_to_human",
+      "success": true,
+      "reason": "handoff",
+      "state": "HANDOFF"
+    },
+    {
+      "id": "cancel_missing",
+      "success": true,
+      "reason": "no_row_to_cancel",
+      "state": "COLLECT_SLOTS"
+    },
+    {
+      "id": "book_avery",
+      "success": true,
+      "reason": "booked",
+      "state": "CLOSE"
+    }
+  ],
+  "slot_f1_gate": "forbidden_until_golden_published"
+}

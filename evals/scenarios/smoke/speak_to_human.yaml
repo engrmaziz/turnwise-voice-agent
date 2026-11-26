@@ -1,0 +1,14 @@
+id: speak_to_human
+goal: handoff
+intent: speak_to_human
+slots: {}
+persona: brief
+noise_snr_db: null
+speaking_rate: 1.0
+disfluency: false
+barge_in: false
+urgent: false
+clock: virtual
+caller: scripted
+script:
+  - "I want to speak to a person"

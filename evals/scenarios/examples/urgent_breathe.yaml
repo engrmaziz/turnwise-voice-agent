@@ -1,0 +1,14 @@
+id: urgent_breathe
+goal: urgent
+intent: urgent_symptom
+slots: {}
+persona: brief
+noise_snr_db: null
+speaking_rate: 1.0
+disfluency: false
+barge_in: false
+urgent: true
+clock: virtual
+caller: scripted
+script:
+  - "I can't breathe and I need an appointment"

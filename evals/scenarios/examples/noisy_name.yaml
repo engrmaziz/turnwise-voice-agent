@@ -1,0 +1,22 @@
+id: noisy_name
+goal: book
+intent: book
+slots:
+  patient_name: "Ada Lovelace"
+  phone: "5550100123"
+  doctor: "khan"
+  date: "2026-03-10"
+  time: "15:00"
+persona: brief
+noise_snr_db: 10.0
+speaking_rate: 1.0
+disfluency: false
+barge_in: false
+urgent: false
+clock: virtual
+caller: scripted
+script:
+  - "book with doctor con on Tuesday at three"
+  - "Ada Lovelace"
+  - "five five five zero one zero zero one two three"
+  - "yes"

@@ -1,5 +1,5 @@
 """Spoken evaluation and hardware benches.
 
-Task success will be checked against the database, not against an LLM judge.
+Task success is a database assertion. Soft scores cannot flip it.
 The hardware bench lives in ``evals.bench`` and is off the call path.
 """

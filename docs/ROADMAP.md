@@ -94,6 +94,8 @@ Done in Phase 8 (`docs/plan/08_phase_paralinguistics_safety.md`, `docs/results/p
 
 ## Phase 10 — Evaluation
 
+Done in Phase 9 (`docs/plan/09_phase_evaluation.md`, `docs/results/phase9.md`). Matrix JSON reports actual n. Realtime TTFA is `skipped` until a wall-clock subset runs (ADR-012). Ablations are result-or-blocked.
+
 - Scenarios are YAML. Functional runs use a virtual clock. A smaller real-time set measures barge-in and time-to-first-audio.
 - Task success is a database assertion.
 - The judge model scores politeness and clarity only.

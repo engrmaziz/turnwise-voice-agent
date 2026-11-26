@@ -1,0 +1,15 @@
+id: faq_hours
+goal: faq
+intent: faq
+slots:
+  faq_query: "what are your hours"
+persona: brief
+noise_snr_db: null
+speaking_rate: 1.0
+disfluency: false
+barge_in: false
+urgent: false
+clock: virtual
+caller: scripted
+script:
+  - "what are your hours"

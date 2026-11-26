@@ -1,0 +1,12 @@
+# Ten scripted ids. CI runs this list. eval_smoke_n 30 is the target, not a fake N.
+ids:
+  - book_happy
+  - barge_mid_confirm
+  - noisy_name
+  - urgent_breathe
+  - faq_hours
+  - faq_unknown
+  - hangup_early
+  - speak_to_human
+  - cancel_missing
+  - book_avery

@@ -1,0 +1,7 @@
+{
+  "status": "skipped",
+  "reason": "eval_time_scale is virtual",
+  "n": 0,
+  "requested_n": 30,
+  "clock": "realtime"
+}

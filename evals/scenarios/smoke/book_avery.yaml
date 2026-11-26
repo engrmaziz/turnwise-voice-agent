@@ -1,0 +1,22 @@
+id: book_avery
+goal: book
+intent: book
+slots:
+  patient_name: "Jordan Pike"
+  phone: "5550101234"
+  doctor: "Dr. Avery Lang"
+  date: "2026-12-15"
+  time: "15:00"
+persona: brief
+noise_snr_db: null
+speaking_rate: 1.0
+disfluency: false
+barge_in: false
+urgent: false
+clock: virtual
+caller: scripted
+script:
+  - "book with Avery Tuesday at three"
+  - "Jordan Pike"
+  - "five five five zero one zero one two three four"
+  - "yes"

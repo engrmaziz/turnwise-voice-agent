@@ -143,6 +143,13 @@ class Settings(BaseSettings):
     fuse_w_repair: float = 0.2
     fuse_w_no: float = 0.1
     fuse_w_barge: float = 0.1
+    eval_scenario_dir: str = "evals/scenarios"
+    eval_time_scale: float = 0.0
+    eval_realtime_n: int = 30
+    eval_smoke_n: int = 30
+    eval_matrix_n: int = 900
+    eval_soft_judge: bool = False
+    eval_text_inject: bool = False
 
     @field_validator("service_name", "otel_endpoint")
     @classmethod
@@ -214,6 +221,9 @@ class Settings(BaseSettings):
         "tts_timeout_ms",
         "emotion_timeout_ms",
         "frustration_turns",
+        "eval_realtime_n",
+        "eval_smoke_n",
+        "eval_matrix_n",
     )
     @classmethod
     def at_least_one(cls, value: int) -> int:
@@ -336,6 +346,21 @@ class Settings(BaseSettings):
         stripped = value.strip()
         if stripped not in {"", "stub", "piper", "kokoro"}:
             raise ValueError("tts_backend must be empty, stub, piper, or kokoro")
+        return stripped
+
+    @field_validator("eval_time_scale")
+    @classmethod
+    def virtual_or_realtime(cls, value: float) -> float:
+        if value not in {0.0, 1.0}:
+            raise ValueError("eval_time_scale must be 0 (virtual) or 1 (realtime)")
+        return value
+
+    @field_validator("eval_scenario_dir")
+    @classmethod
+    def eval_dir_non_empty(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("eval_scenario_dir must be non-empty")
         return stripped
 
     @field_validator("ws_allowed_sample_rates")
