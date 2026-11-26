@@ -12,7 +12,7 @@ services:
       TURNWISE_OTEL_ENDPOINT: http://jaeger:4317
       TURNWISE_OTEL_INSECURE: "true"
     ports:
-      - "8000:8000"
+      - "${TURNWISE_HOST_HTTP_PORT:-8000}:8000"
     depends_on:
       - jaeger
     healthcheck:
@@ -32,7 +32,7 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
-      - "9090:9090"
+      - "${TURNWISE_HOST_PROM_PORT:-9090}:9090"
     depends_on:
       app:
         condition: service_healthy
@@ -43,7 +43,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
     ports:
-      - "3000:3000"
+      - "${TURNWISE_HOST_GRAFANA_PORT:-3000}:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

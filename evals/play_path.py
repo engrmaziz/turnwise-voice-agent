@@ -1,4 +1,4 @@
-"""Scripted caller plus stub TTS play-ack. Not a product TTFA quote (ADR-012)."""
+"""Scripted caller plus TTS play-ack. Not a product TTFA quote (ADR-012)."""
 
 from __future__ import annotations
 
@@ -116,4 +116,5 @@ async def run_scripted_play(
         barge_in_count=float(barge_hits),
         ungrounded=0.0,
         turns=turns,
+        play_emitted=audio_out.emitted,
     )

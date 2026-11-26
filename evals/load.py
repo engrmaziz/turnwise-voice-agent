@@ -1,8 +1,12 @@
-"""Concurrent scripted load with stub play-ack.
+"""Concurrent scripted load with play-ack.
 
 TTFA samples come from AudioOutHandler.note_play_ack after a synthetic TURN_END.
 That is not a product SLO quote (ADR-012). ADR-004 stays blocked. Histogram p95
 is a Prometheus bucket upper bound, not an interpolated millisecond.
+
+Default settings keep the silence stub so CI stays weight-free. Pass
+``--tts-backend piper`` after ``uv sync --extra tts`` and
+``python scripts/download_models.py`` to measure a synthesizer column.
 """
 
 from __future__ import annotations
@@ -21,13 +25,35 @@ from evals.harness import default_eval_settings
 from evals.judge_db import judge
 from evals.play_path import run_scripted_play
 from evals.schema import find_scenario, load_scenario
-from models.tts_pool import TtsPool
+from models.tts_pool import TtsPool, load_tts_pool
 from pipeline.metrics import StageMetrics, build_stage_metrics
 from server.config import Settings
 
 TTFA_P95_CAP = 1.2
 ADR004_TIER = "blocked"
-TTFA_PATH = "stub_play_ack"
+
+
+class LoadError(RuntimeError):
+    """Load driver cannot start with the requested TTS backend."""
+
+
+def tts_path_label(pool: TtsPool) -> str:
+    name = pool.model_name
+    if name == "stub":
+        return "stub_play_ack"
+    if name.startswith("piper"):
+        return "piper_play_ack"
+    return f"{name}_play_ack"
+
+
+def pool_for_load(settings: Settings) -> TtsPool:
+    pool = load_tts_pool(settings)
+    backend = settings.tts_backend.strip()
+    if backend in {"", "stub"}:
+        return pool
+    if not pool.available:
+        raise LoadError(f"tts backend {backend} is unavailable")
+    return pool
 
 
 def histogram_p95(metrics: StageMetrics) -> tuple[int, float | None]:
@@ -60,13 +86,13 @@ async def run_one_n(
     scenario_dir: Path,
     settings: Settings,
     out: Path,
+    pool: TtsPool | None = None,
 ) -> dict[str, object]:
     scenario = load_scenario(find_scenario(scenario_dir, scenario_id))
     metrics = build_stage_metrics(CollectorRegistry())
-    pool = TtsPool.stub(
-        timeout_ms=settings.tts_timeout_ms,
-        frame_bytes=settings.tts_pcm_bytes,
-    )
+    owned = pool is None
+    engine = pool if pool is not None else pool_for_load(settings)
+    path = tts_path_label(engine)
     started = time.perf_counter()
     try:
         with TemporaryDirectory() as tmp:
@@ -77,34 +103,38 @@ async def run_one_n(
                     db=tmp_path / f"load-{n}-{index}.sqlite",
                     settings=settings,
                     metrics=metrics,
-                    pool=pool,
+                    pool=engine,
                 )
                 for index in range(n)
             ]
             traces = await asyncio.gather(*tasks)
     finally:
-        pool.close()
+        if owned:
+            engine.close()
     elapsed = time.perf_counter() - started
     successes = sum(1 for trace in traces if judge(scenario, trace, settings=settings).success)
+    acked = sum(1 for trace in traces if trace.play_emitted > 0)
     samples, p95 = histogram_p95(metrics)
-    miss = samples <= 0 or p95 is None or float(p95) > TTFA_P95_CAP
+    miss = samples <= 0 or p95 is None or float(p95) > TTFA_P95_CAP or acked < n
     payload: dict[str, object] = {
         "n": n,
         "scenario_id": scenario_id,
         "elapsed_s": elapsed,
         "task_success": successes / n if n else 0.0,
         "ttfa_samples": samples,
+        "sessions_acked": acked,
         "ttfa_p95_s": p95,
         "ttfa_p95_source": "histogram_bucket",
-        "ttfa_path": TTFA_PATH,
+        "ttfa_path": path,
         "product_quote": False,
         "status": "miss" if miss else "hit",
-        "reason": _row_reason(samples, miss),
+        "reason": _row_reason(samples, miss, acked=acked, n=n),
         "platform": platform.platform(),
         "adr004_tier": ADR004_TIER,
         "time_scale": settings.eval_time_scale,
         "gpu": "no_gpu_smi_on_event_loop",
-        "tts_backend": "stub",
+        "tts_backend": engine.model_name,
+        "llm_max_batch": settings.llm_max_batch,
     }
     await asyncio.to_thread(_write_json, out, payload)
     return payload
@@ -117,31 +147,42 @@ async def run_until_knee(
     scenario_dir: Path,
     settings: Settings,
     out_dir: Path,
+    prefix: str,
 ) -> dict[str, object]:
+    pool = pool_for_load(settings)
+    path = tts_path_label(pool)
     rows: list[dict[str, object]] = []
     misses = 0
     knee = 0
-    for n in range(1, n_max + 1):
-        row = await run_one_n(
-            n=n,
-            scenario_id=scenario_id,
-            scenario_dir=scenario_dir,
-            settings=settings,
-            out=out_dir / f"load_n{n}.json",
-        )
-        rows.append(row)
-        p95_raw = row["ttfa_p95_s"]
-        samples_raw = row["ttfa_samples"]
-        samples = samples_raw if isinstance(samples_raw, int) else 0
-        p95 = p95_raw if isinstance(p95_raw, int | float) else None
-        miss = samples <= 0 or p95 is None or float(p95) > TTFA_P95_CAP
-        if miss:
-            misses += 1
-        else:
-            misses = 0
-            knee = n
-        if misses >= 2:
-            break
+    try:
+        for n in range(1, n_max + 1):
+            row = await run_one_n(
+                n=n,
+                scenario_id=scenario_id,
+                scenario_dir=scenario_dir,
+                settings=settings,
+                out=out_dir / f"{prefix}_n{n}.json",
+                pool=pool,
+            )
+            rows.append(row)
+            p95_raw = row["ttfa_p95_s"]
+            samples_raw = row["ttfa_samples"]
+            acked_raw = row["sessions_acked"]
+            samples = samples_raw if isinstance(samples_raw, int) else 0
+            acked = acked_raw if isinstance(acked_raw, int) else 0
+            p95 = p95_raw if isinstance(p95_raw, int | float) else None
+            n_val = row["n"]
+            n_i = n_val if isinstance(n_val, int) else 0
+            miss = samples <= 0 or p95 is None or float(p95) > TTFA_P95_CAP or acked < n_i
+            if miss:
+                misses += 1
+            else:
+                misses = 0
+                knee = n
+            if misses >= 2:
+                break
+    finally:
+        pool.close()
     summary: dict[str, object] = {
         "knee": knee,
         "n_max_ran": rows[-1]["n"] if rows else 0,
@@ -149,18 +190,77 @@ async def run_until_knee(
         "platform": platform.platform(),
         "adr004_tier": ADR004_TIER,
         "ttfa_p95_cap_s": TTFA_P95_CAP,
-        "ttfa_path": TTFA_PATH,
+        "ttfa_path": path,
         "product_quote": False,
+        "tts_backend": pool.model_name,
+        "llm_max_batch": settings.llm_max_batch,
         "rows": rows,
         "reason": "n=0 failed at 1" if knee == 0 else "largest_n_at_or_under_cap",
+        "contention": _contention(path, knee, rows),
     }
-    await asyncio.to_thread(_write_json, out_dir / "phase10_load.json", summary)
+    await asyncio.to_thread(_write_json, out_dir / f"{prefix}.json", summary)
     return summary
 
 
-def _row_reason(samples: int, miss: bool) -> str:
+def _contention(
+    path: str,
+    knee: int,
+    rows: list[dict[str, object]],
+) -> dict[str, object]:
+    """A/B/C. B and C cannot move TTFA until an LLM TTFT row exists."""
+    knee_p95: float | None = None
+    for row in rows:
+        if row.get("n") == knee:
+            raw = row.get("ttfa_p95_s")
+            if isinstance(raw, int | float):
+                knee_p95 = float(raw)
+            break
+    if path != "piper_play_ack":
+        return {
+            "pick": "blocked",
+            "reason": "silence-stub play-ack is not a synthesizer p95",
+            "strategy_a": {"name": "cpu_piper", "status": "not_run"},
+            "strategy_b": {
+                "name": "llm_speaking_priority",
+                "status": "blocked",
+                "reason": "llm_unavailable",
+            },
+            "strategy_c": {
+                "name": "llm_max_batch_4",
+                "status": "blocked",
+                "reason": "llm_unavailable",
+            },
+        }
+    return {
+        "pick": "A",
+        "reason": (
+            "CPU Piper play-ack is the only synthesizer p95 column. "
+            "B and C need an LLM TTFT row to move TTFA."
+        ),
+        "strategy_a": {
+            "name": "cpu_piper",
+            "status": "ok",
+            "knee": knee,
+            "ttfa_p95_s": knee_p95,
+        },
+        "strategy_b": {
+            "name": "llm_speaking_priority",
+            "status": "blocked",
+            "reason": "llm_unavailable",
+        },
+        "strategy_c": {
+            "name": "llm_max_batch_4",
+            "status": "blocked",
+            "reason": "llm_unavailable",
+        },
+    }
+
+
+def _row_reason(samples: int, miss: bool, *, acked: int, n: int) -> str:
     if samples <= 0:
         return "no_play_ack_samples"
+    if acked < n:
+        return "sessions_without_play_ack"
     if miss:
         return "over_cap"
     return "at_or_under_cap"
@@ -173,10 +273,11 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
 
 def render_markdown(summary: dict[str, object]) -> str:
     rows = summary.get("rows")
+    path = str(summary.get("ttfa_path"))
     lines = [
         "# Phase 10 load",
         "",
-        "TTFA is stub play-ack (`ttfa_path=stub_play_ack`). It is not a product SLO quote.",
+        f"TTFA is `{path}`. It is not a product SLO quote (ADR-012).",
         "p95 is a Prometheus histogram bucket upper bound. ADR-004 stays blocked.",
         "",
         f"- `platform`: {summary.get('platform')}",
@@ -185,25 +286,36 @@ def render_markdown(summary: dict[str, object]) -> str:
         f"- `reason`: {summary.get('reason')}",
         f"- `ttfa_path`: {summary.get('ttfa_path')}",
         f"- `product_quote`: {summary.get('product_quote')}",
+        f"- `tts_backend`: {summary.get('tts_backend')}",
         "",
-        "| n | ttfa_samples | ttfa_p95_s | status | elapsed_s |",
-        "|---|---|---|---|---|",
+        "| n | sessions_acked | ttfa_samples | ttfa_p95_s | status | elapsed_s |",
+        "|---|---|---|---|---|---|",
     ]
     if isinstance(rows, list):
         for row in rows:
             if not isinstance(row, dict):
                 continue
             lines.append(
-                f"| {row.get('n')} | {row.get('ttfa_samples')} | {row.get('ttfa_p95_s')} |"
-                f" {row.get('status')} | {row.get('elapsed_s')} |"
+                f"| {row.get('n')} | {row.get('sessions_acked')} | {row.get('ttfa_samples')} |"
+                f" {row.get('ttfa_p95_s')} | {row.get('status')} | {row.get('elapsed_s')} |"
             )
     lines.append("")
     lines.append("## Contention (ADR-013)")
     lines.append("")
-    lines.append(
-        "Stub play-ack p95 is not a synthesizer p95 (ADR-010). ADR-013 does not pick "
-        "A/B/C from this column. Tokens/s is not used."
-    )
+    contention = summary.get("contention")
+    if isinstance(contention, dict):
+        lines.append(f"- pick: `{contention.get('pick')}`")
+        lines.append(f"- reason: {contention.get('reason')}")
+        for key in ("strategy_a", "strategy_b", "strategy_c"):
+            item = contention.get(key)
+            if isinstance(item, dict):
+                extra = ""
+                if item.get("ttfa_p95_s") is not None:
+                    extra = f", p95={item.get('ttfa_p95_s')}s knee={item.get('knee')}"
+                lines.append(
+                    f"- `{item.get('name')}`: {item.get('status')}"
+                    + (f" ({item.get('reason')})" if item.get("reason") else extra)
+                )
     lines.append("")
     return "\n".join(lines)
 
@@ -213,19 +325,32 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--n", type=int, default=None)
     parser.add_argument("--out-dir", type=Path, default=Path("docs/results"))
     parser.add_argument("--scenario", default="book_avery")
+    parser.add_argument(
+        "--tts-backend",
+        default="",
+        help="Empty keeps the silence stub. piper requires the extra and locked ONNX.",
+    )
     args = parser.parse_args(argv)
     settings = default_eval_settings()
+    backend = str(args.tts_backend).strip()
+    if backend:
+        settings = settings.model_copy(update={"tts_backend": backend})
+    prefix = "phase10_load_piper" if backend == "piper" else "phase10_load"
     n_max = args.n if args.n is not None else settings.load_n_max
-    summary = asyncio.run(
-        run_until_knee(
-            n_max=n_max,
-            scenario_id=args.scenario,
-            scenario_dir=Path(settings.eval_scenario_dir),
-            settings=settings,
-            out_dir=args.out_dir,
+    try:
+        summary = asyncio.run(
+            run_until_knee(
+                n_max=n_max,
+                scenario_id=args.scenario,
+                scenario_dir=Path(settings.eval_scenario_dir),
+                settings=settings,
+                out_dir=args.out_dir,
+                prefix=prefix,
+            )
         )
-    )
-    (args.out_dir / "phase10_load.md").write_text(render_markdown(summary), encoding="utf-8")
+    except LoadError as exc:
+        raise SystemExit(str(exc)) from exc
+    (args.out_dir / f"{prefix}.md").write_text(render_markdown(summary), encoding="utf-8")
     return 0
 
 

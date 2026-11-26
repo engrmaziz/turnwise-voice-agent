@@ -2,8 +2,11 @@
 
 from pathlib import Path
 
+import pytest
+
 from evals.harness import default_eval_settings
-from evals.load import run_one_n
+from evals.load import LoadError, pool_for_load, run_one_n, tts_path_label
+from models.tts_pool import TtsPool
 
 
 async def test_load_n1_reports_actual_n_and_stub_play_ack(tmp_path: Path) -> None:
@@ -26,3 +29,25 @@ async def test_load_n1_reports_actual_n_and_stub_play_ack(tmp_path: Path) -> Non
     assert payload["status"] in {"hit", "miss"}
     assert "platform" in payload
     assert out.is_file()
+    assert payload["tts_backend"] == "stub"
+    assert payload["sessions_acked"] == 1
+
+
+def test_tts_path_label_names_stub_and_piper() -> None:
+    stub = TtsPool.stub(timeout_ms=50, frame_bytes=640)
+    stub.close()
+    assert tts_path_label(stub) == "stub_play_ack"
+    named = TtsPool.unavailable(timeout_ms=50)
+    named.model_name = "piper:en_US-amy-low.onnx"
+    assert tts_path_label(named) == "piper_play_ack"
+
+
+def test_piper_load_without_onnx_raises(tmp_path: Path) -> None:
+    settings = default_eval_settings().model_copy(
+        update={
+            "tts_backend": "piper",
+            "tts_piper_onnx_path": str(tmp_path / "missing.onnx"),
+        }
+    )
+    with pytest.raises(LoadError, match="unavailable"):
+        pool_for_load(settings)

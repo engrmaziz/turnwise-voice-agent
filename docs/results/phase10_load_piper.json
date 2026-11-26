@@ -1,0 +1,95 @@
+{
+  "knee": 1,
+  "n_max_ran": 3,
+  "requested_n_max": 16,
+  "platform": "Windows-10-10.0.26300-SP0",
+  "adr004_tier": "blocked",
+  "ttfa_p95_cap_s": 1.2,
+  "ttfa_path": "piper_play_ack",
+  "product_quote": false,
+  "tts_backend": "piper:en_US-amy-low.onnx",
+  "llm_max_batch": 1,
+  "rows": [
+    {
+      "n": 1,
+      "scenario_id": "book_avery",
+      "elapsed_s": 3.1921111999981804,
+      "task_success": 1.0,
+      "ttfa_samples": 4,
+      "sessions_acked": 1,
+      "ttfa_p95_s": 1.0,
+      "ttfa_p95_source": "histogram_bucket",
+      "ttfa_path": "piper_play_ack",
+      "product_quote": false,
+      "status": "hit",
+      "reason": "at_or_under_cap",
+      "platform": "Windows-10-10.0.26300-SP0",
+      "adr004_tier": "blocked",
+      "time_scale": 0.0,
+      "gpu": "no_gpu_smi_on_event_loop",
+      "tts_backend": "piper:en_US-amy-low.onnx",
+      "llm_max_batch": 1
+    },
+    {
+      "n": 2,
+      "scenario_id": "book_avery",
+      "elapsed_s": 1.4203258999914397,
+      "task_success": 1.0,
+      "ttfa_samples": 4,
+      "sessions_acked": 1,
+      "ttfa_p95_s": 1.0,
+      "ttfa_p95_source": "histogram_bucket",
+      "ttfa_path": "piper_play_ack",
+      "product_quote": false,
+      "status": "miss",
+      "reason": "sessions_without_play_ack",
+      "platform": "Windows-10-10.0.26300-SP0",
+      "adr004_tier": "blocked",
+      "time_scale": 0.0,
+      "gpu": "no_gpu_smi_on_event_loop",
+      "tts_backend": "piper:en_US-amy-low.onnx",
+      "llm_max_batch": 1
+    },
+    {
+      "n": 3,
+      "scenario_id": "book_avery",
+      "elapsed_s": 1.3928696999937529,
+      "task_success": 1.0,
+      "ttfa_samples": 4,
+      "sessions_acked": 1,
+      "ttfa_p95_s": 1.0,
+      "ttfa_p95_source": "histogram_bucket",
+      "ttfa_path": "piper_play_ack",
+      "product_quote": false,
+      "status": "miss",
+      "reason": "sessions_without_play_ack",
+      "platform": "Windows-10-10.0.26300-SP0",
+      "adr004_tier": "blocked",
+      "time_scale": 0.0,
+      "gpu": "no_gpu_smi_on_event_loop",
+      "tts_backend": "piper:en_US-amy-low.onnx",
+      "llm_max_batch": 1
+    }
+  ],
+  "reason": "largest_n_at_or_under_cap",
+  "contention": {
+    "pick": "A",
+    "reason": "CPU Piper play-ack is the only synthesizer p95 column. B and C need an LLM TTFT row to move TTFA.",
+    "strategy_a": {
+      "name": "cpu_piper",
+      "status": "ok",
+      "knee": 1,
+      "ttfa_p95_s": 1.0
+    },
+    "strategy_b": {
+      "name": "llm_speaking_priority",
+      "status": "blocked",
+      "reason": "llm_unavailable"
+    },
+    "strategy_c": {
+      "name": "llm_max_batch_4",
+      "status": "blocked",
+      "reason": "llm_unavailable"
+    }
+  }
+}

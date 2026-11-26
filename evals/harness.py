@@ -35,6 +35,7 @@ class RunTrace:
     barge_in_count: float
     ungrounded: float
     turns: tuple[ScriptTurn, ...] = ()
+    play_emitted: int = 0
 
 
 def eval_now(scenario: Scenario, timezone: ZoneInfo) -> datetime:
@@ -139,4 +140,5 @@ def default_eval_settings() -> Settings:
         otel_enabled=False,
         log_level="WARNING",
         calendar_db_path="data/eval.sqlite",
+        tts_backend="",
     )

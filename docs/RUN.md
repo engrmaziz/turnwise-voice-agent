@@ -24,7 +24,7 @@ uv run python -m server
 docker compose -f infra/docker-compose.yml up --build
 ```
 
-That starts the app (`:8000`), Prometheus (`:9090`), Grafana (`:3000`, anonymous viewer), and Jaeger (UI `:16686`). Jaeger OTLP gRPC stays on the compose network at `jaeger:4317` and is not published on the host, so a local collector already bound to 4317 does not block the container. Prometheus still needs host 9090.
+That starts the app (`:8000`), Prometheus (`:9090`), Grafana (`:3000`, anonymous viewer), and Jaeger (UI `:16686`). Jaeger OTLP gRPC stays on the compose network at `jaeger:4317` and is not published on the host, so a local collector already bound to 4317 does not block the container. If host 8000 or 9090 is already taken, override `TURNWISE_HOST_HTTP_PORT` and `TURNWISE_HOST_PROM_PORT` (and `TURNWISE_HOST_GRAFANA_PORT` if 3000 is busy).
 
 Recorded boot: [`docs/results/phase10_compose.md`](results/phase10_compose.md). A fail in that file is a fail.
 
@@ -32,6 +32,7 @@ Recorded boot: [`docs/results/phase10_compose.md`](results/phase10_compose.md). 
 
 ```bash
 uv run python -m evals.load --n 2 --out-dir docs/results
+uv run python -m evals.load --tts-backend piper --out-dir docs/results
 ```
 
-The driver stamps a synthetic TURN_END, runs stub TTS, and acks play index 0. It stops after two consecutive P95 misses versus 1200 ms. p95 is a histogram bucket bound. JSON labels `ttfa_path=stub_play_ack` and `product_quote=false`. This host: knee 16 at `load_n_max`. That is not a product TTFA quote. JSON includes `platform.platform()` and `adr004_tier=blocked`.
+The driver stamps a synthetic TURN_END, runs TTS, and acks play index 0. It stops after two consecutive misses (no play-ack on every session, or histogram p95 over 1200 ms). p95 is a histogram bucket bound. `product_quote=false`. Stub column: knee 16 (`docs/results/phase10_load.md`). Piper column: knee 1 (`docs/results/phase10_load_piper.md`). Neither is a product TTFA quote. JSON includes `platform.platform()` and `adr004_tier=blocked`.

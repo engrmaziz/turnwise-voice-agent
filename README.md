@@ -4,7 +4,7 @@ A fully local, streaming voice agent where deterministic dialogue control owns c
 
 Clinic receptionist: book, reschedule, and cancel appointments, answer FAQs, escalate urgent symptoms, hand off to a human. $0 to run after the hardware you already own. No hosted speech or model API on the default path.
 
-**This checkout is Phase 0 through Phase 10.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub by default; CPU Piper when `TURNWISE_TTS_BACKEND=piper`), play-ack TTFA, paralinguistic courtesy (fusion + two-turn offer), a scripted eval harness (DB judge, virtual-clock matrix, CI smoke), per-turn traces, Grafana panels 1–12, a scripted load driver, three degradation drills, model lock/download, and compose packaging are in. The LLM client is a stub. Real ASR and emotion weights are not pinned (ADR-006, ADR-011). Piper CPU first-chunk p50 is 33.9 ms (`docs/results/phase7_piper.md`). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number. Nine hundred virtual calls are not claimed. Load knee is 16 at `load_n_max` on stub play-ack (histogram p95 0.05–0.1 s, not a product quote). ADR-003 stays Proposed. ADR-004 and ADR-013 stay blocked.
+**This checkout is Phase 0 through Phase 10.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub by default; CPU Piper when `TURNWISE_TTS_BACKEND=piper`), play-ack TTFA, paralinguistic courtesy (fusion + two-turn offer), a scripted eval harness (DB judge, virtual-clock matrix, CI smoke), per-turn traces, Grafana panels 1–12, a scripted load driver, three degradation drills, model lock/download, and compose packaging are in. The LLM client is a stub. Real ASR and emotion weights are not pinned (ADR-006, ADR-011). Piper CPU first-chunk p50 is 33.9 ms (`docs/results/phase7_piper.md`). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number. Nine hundred virtual calls are not claimed. Load knee is 16 on stub play-ack and **1** on Piper play-ack (histogram p95 1.0 s at n=1, `product_quote=false`; [`docs/results/phase10_load.md`](docs/results/phase10_load.md), [`docs/results/phase10_load_piper.md`](docs/results/phase10_load_piper.md)). ADR-003 stays Proposed. ADR-004 stays blocked. ADR-013 picks CPU Piper (A); B/C need an LLM TTFT row.
 
 ## Scope
 
@@ -32,7 +32,7 @@ Definitions and formulas: [`docs/SLOs.md`](docs/SLOs.md). No product TTFA has be
 
 | Metric | Target and measured |
 |---|---|
-| Time-to-first-audio P50 / P95 | TARGET ≤ 700 ms / ≤ 1200 ms, unmet. Realtime subset skipped (`docs/results/phase9.md`). Stub play-ack load knee 16, histogram p95 0.05–0.1 s, `product_quote=false` (`docs/results/phase10_load.md`). |
+| Time-to-first-audio P50 / P95 | TARGET ≤ 700 ms / ≤ 1200 ms, unmet. Realtime subset skipped (`docs/results/phase9.md`). Stub play-ack knee 16 (`docs/results/phase10_load.md`). Piper play-ack knee 1, histogram p95 1.0 s, `product_quote=false` (`docs/results/phase10_load_piper.md`). |
 | Task success, clean audio | TARGET ≥ 90%. Smoke `task_success` 0.9 is virtual-clock, not this SLO (`docs/results/phase9.md`). |
 | Task success, 10 dB SNR | TARGET ≥ 75%. Matrix `task_success` 0.888… is virtual-clock n=9, not this SLO (`docs/results/phase9.md`). |
 | False barge-in | TARGET < 2% of agent utterances. Realtime subset skipped (`docs/results/phase9.md`). |
@@ -129,7 +129,7 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M9.4 virtual matrix + realtime skip | done (actual n in JSON; ADR-012) |
 | M9.5 ablations + CI smoke | done (result-or-blocked; unsafe writer not in `server/`) |
 | M10.1 per-turn traces + Grafana 8–12 | done (GPU skip panel; see `infra/grafana/dashboards/turnwise.json`) |
-| M10.2 load knee + LLM priority/batch | done (stub play-ack knee 16 at `load_n_max`; not a product quote; ADR-013 blocked; [`docs/results/phase10_load.md`](docs/results/phase10_load.md)) |
+| M10.2 load knee + LLM priority/batch | done (stub knee 16; Piper knee 1; ADR-013 picks A; [`docs/results/phase10_load.md`](docs/results/phase10_load.md), [`docs/results/phase10_load_piper.md`](docs/results/phase10_load_piper.md)) |
 | M10.3 degrade drills, span PII, retain off | done |
 | M10.4 lock/download, compose, missing weights | done ([`docs/results/phase10_compose.md`](docs/results/phase10_compose.md), [`docs/RUN.md`](docs/RUN.md)) |
 | M10.5 README sources, demo, blog, ADR index | done ([`docs/demo.md`](docs/demo.md), [`docs/blog/generation_cancellation.md`](docs/blog/generation_cancellation.md)) |

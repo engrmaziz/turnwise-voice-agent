@@ -411,7 +411,7 @@ License strings are copied from the source in the cited task. This table is the 
 | 010 | TTS device | 7 T7.4.4 | CPU; Piper named from first-chunk JSON |
 | 011 | Emotion default-off | 8 T8.4.3 | Flag false until ECE |
 | 012 | Eval clocks | 9 T9.4.3 | What may be quoted |
-| 013 | GPU contention | 10 T10.2.5 | A/B/C from p95 |
+| 013 | GPU contention | 10 T10.2.5 | A CPU Piper; B/C blocked |
 
 ## J. Traceability matrix
 
