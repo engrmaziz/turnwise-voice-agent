@@ -32,6 +32,24 @@ def test_health_200_with_empty_model_dir(tmp_path: Path, settings: Settings) -> 
         assert body["degraded_asr"] is True
 
 
+def test_health_200_when_zipformer_encoder_missing(tmp_path: Path, settings: Settings) -> None:
+    empty = tmp_path / "weights"
+    empty.mkdir()
+    configured = settings.model_copy(
+        update={
+            "asr_backend": "zipformer",
+            "asr_zipformer_encoder_path": str(empty / "missing.onnx"),
+            "tts_backend": "",
+        }
+    )
+    app = create_app(configured)
+    with TestClient(app) as client:
+        health = client.get("/health")
+        assert health.status_code == 200
+        body = health.json()
+        assert body["degraded_asr"] is True
+
+
 def test_health_200_when_piper_onnx_missing(tmp_path: Path, settings: Settings) -> None:
     empty = tmp_path / "weights"
     empty.mkdir()

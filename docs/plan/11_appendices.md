@@ -38,7 +38,11 @@ Environment prefix `TURNWISE_`. Types are Python types on `Settings`. STARTING P
 | `audio_clip_fraction` | float | 0.01 | Clip fraction | 2 T2.4.1 |
 | `audio_clip_peak` | int | 32760 | Clip peak | 2 T2.4.1 |
 | `worker_batch_wait_ms` | int | 2 | Pool batch wait cap | 3 T3.1.1 |
-| `asr_backend` | str | empty until ADR-006 | `zipformer` or `whisper_la2` | 3 T3.2.3 |
+| `asr_backend` | str | empty (stub) | `zipformer` after download; whisper unpinned | 3 T3.2.3 |
+| `asr_zipformer_encoder_path` | str | int8 encoder under `models/weights/zipformer/` | CPU Zipformer | 3 T3.2.2 |
+| `asr_zipformer_decoder_path` | str | int8 decoder | CPU Zipformer | 3 T3.2.2 |
+| `asr_zipformer_joiner_path` | str | int8 joiner | CPU Zipformer | 3 T3.2.2 |
+| `asr_zipformer_tokens_path` | str | `tokens.txt` | CPU Zipformer | 3 T3.2.2 |
 | `asr_pool_slots` | int | 1 | 2 on 16 GB tier | 3 T3.1.1 |
 | `asr_finish_timeout_ms` | int | 200 | Finalize timeout | 3 T3.1.1 |
 | `hotword_score` | float | 1.5 STARTING POINT | Bias score | 3 T3.3.2 |
@@ -404,7 +408,7 @@ License strings are copied from the source in the cited task. This table is the 
 | 003 | Model stack criteria | 0 Proposed | Accept after benches |
 | 004 | Hardware tier | 1 T1.4.5 | CPU-only / 8 GB / 16 GB+ |
 | 005 | VAD threshold | 2 only if moved | Speech threshold change |
-| 006 | ASR backend | 3 T3.2.3 | zipformer or whisper_la2 |
+| 006 | ASR backend | 3 T3.2.3 | zipformer (Whisper unpinned; 100 ms TARGET missed) |
 | 007 | Turn model | 4 T4.2.4 | Enable or silence-only |
 | 008 | NLU latency miss | 5 if 30 ms missed | Matcher stay or miss |
 | 009 | FAQ overlap | 6 T6.3.3 | Token overlap baseline |

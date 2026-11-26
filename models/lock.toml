@@ -10,7 +10,7 @@ path = "models/weights/silero_vad.onnx"
 sha256 = "f6f4407b41e05e277e7f5cfd9b9ae957b1dfe763c6076a934734c0b448e09b31"
 url = "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx"
 version = ""
-note = "Hashed from models/weights/silero_vad.onnx on this host, 2204103 bytes, same size as docs/results/phase2.md. Benchmarks.md does not pin Zipformer, Whisper, LLM, or TTS."
+note = "Hashed from models/weights/silero_vad.onnx on this host, 2204103 bytes, same size as docs/results/phase2.md."
 
 [[model]]
 name = "piper_en_US_amy_low_onnx"
@@ -29,3 +29,39 @@ url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/low
 timeout_s = 60
 version = "en_US-amy-low"
 note = "Hashed from models/weights/piper/en_US-amy-low.onnx.json on this host, 4164 bytes. Piper voice config beside the ONNX."
+
+[[model]]
+name = "zipformer_en_2023_06_26_encoder_int8"
+path = "models/weights/zipformer/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+sha256 = "563fde436d16cf7607cf408cd6b30909819d03162652ef389c2450ced3f45ac1"
+url = "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+timeout_s = 300
+version = "en-2023-06-26-int8"
+note = "Hashed on this host, 71083163 bytes. csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26. CI does not download this file."
+
+[[model]]
+name = "zipformer_en_2023_06_26_decoder_int8"
+path = "models/weights/zipformer/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+sha256 = "98da299f471e38bb4e1a8df579b8cc9122d6039576a77e357b3c60f17dd83b02"
+url = "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+timeout_s = 120
+version = "en-2023-06-26-int8"
+note = "Hashed on this host, 1307236 bytes."
+
+[[model]]
+name = "zipformer_en_2023_06_26_joiner_int8"
+path = "models/weights/zipformer/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+sha256 = "d944208d660d67c8d72cd2acaeac971fa5ceb8c80e76c1968148846fedd6e297"
+url = "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+timeout_s = 60
+version = "en-2023-06-26-int8"
+note = "Hashed on this host, 259335 bytes."
+
+[[model]]
+name = "zipformer_en_2023_06_26_tokens"
+path = "models/weights/zipformer/tokens.txt"
+sha256 = "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
+url = "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/tokens.txt"
+timeout_s = 60
+version = "en-2023-06-26"
+note = "Hashed on this host, 5048 bytes."

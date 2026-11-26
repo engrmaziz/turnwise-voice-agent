@@ -1,7 +1,7 @@
 [project]
 name = "turnwise"
 version = "0.1.0"
-description = "Local full-duplex streaming voice agent. This release is the event bus through streaming TTS (silence stub by default; optional CPU Piper), paralinguistic courtesy, a scripted eval harness, and production hardening (turn traces, load knee, degradation drills, compose)."
+description = "Local full-duplex streaming voice agent. This release is the event bus through streaming TTS (silence stub by default; optional CPU Piper) and optional CPU Zipformer ASR (stub by default), paralinguistic courtesy, a scripted eval harness, and production hardening (turn traces, load knee, degradation drills, compose)."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",
@@ -24,6 +24,9 @@ dependencies = [
 [project.optional-dependencies]
 tts = [
     "piper-tts>=1.8.0",
+]
+asr = [
+    "sherpa-onnx>=2.0.3",
 ]
 
 [dependency-groups]
@@ -128,6 +131,8 @@ module = [
   "yaml",
   "piper",
   "piper.*",
+  "sherpa_onnx",
+  "sherpa_onnx.*",
 ]
 ignore_missing_imports = true
 

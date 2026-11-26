@@ -7,10 +7,17 @@ import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
 
 import structlog
 
 from models.asr_types import AsrHypothesis, WordConf
+from models.asr_zipformer import (
+    ZipformerRecognizer,
+    ZipformerUtterance,
+    load_zipformer_recognizer,
+    warmup_recognizer,
+)
 from nlp.local_agreement import LocalAgreement2
 from pipeline.metrics import StageMetrics
 from server.config import Settings
@@ -63,10 +70,19 @@ class AsrStream:
         self._pcm = bytearray()
         self._agreement = LocalAgreement2()
         self._finished = False
+        self._zip: ZipformerUtterance | None = None
+        if pool.recognizer is not None:
+            self._zip = ZipformerUtterance(
+                recognizer=pool.recognizer,
+                generation=generation,
+                sample_rate=pool.sample_rate_hz,
+            )
 
     def set_hotwords(self, words: Sequence[str], score: float) -> None:
         self.hotwords = tuple(words)
         self.hotword_score = score
+        if self._zip is not None:
+            self._zip.set_hotwords(self.hotwords)
 
     async def push(self, pcm: bytes) -> AsrHypothesis | None:
         if self._finished:
@@ -93,6 +109,16 @@ class AsrStream:
         )
 
     def _push_sync(self, pcm: bytes) -> AsrHypothesis:
+        if self._zip is not None:
+            hypo = self._zip.push(pcm)
+            stable = self._agreement.push(hypo.text)
+            return AsrHypothesis(
+                text=hypo.text,
+                words=hypo.words,
+                stable_prefix=stable,
+                generation=self.generation,
+                is_final=False,
+            )
         if self._sleep_s > 0:
             time.sleep(self._sleep_s)
         self._pcm.extend(pcm)
@@ -107,6 +133,8 @@ class AsrStream:
         )
 
     def _finish_sync(self) -> AsrHypothesis:
+        if self._zip is not None:
+            return self._zip.finish()
         if self._sleep_s > 0:
             time.sleep(self._sleep_s)
         text = self._transcript
@@ -163,6 +191,8 @@ class AsrPool:
         self._queue: asyncio.PriorityQueue[tuple[int, int]] | None = None
         self._jobs: dict[int, _Job] = {}
         self._worker: asyncio.Task[None] | None = None
+        self.recognizer: ZipformerRecognizer | None = None
+        self.sample_rate_hz: int = 16000
 
     @classmethod
     def stub(cls, settings: Settings, metrics: StageMetrics, *, sleep_s: float = 0.0) -> AsrPool:
@@ -177,6 +207,47 @@ class AsrPool:
         )
 
     @classmethod
+    def unavailable(cls, settings: Settings, metrics: StageMetrics) -> AsrPool:
+        return cls(
+            slots=settings.asr_pool_slots,
+            timeout_s=settings.asr_finish_timeout_ms / 1000.0,
+            metrics=metrics,
+            transcript="",
+            backend="unavailable",
+            supports_hotwords=False,
+        )
+
+    @classmethod
+    def zipformer(cls, settings: Settings, metrics: StageMetrics) -> AsrPool:
+        encoder = Path(settings.asr_zipformer_encoder_path)
+        decoder = Path(settings.asr_zipformer_decoder_path)
+        joiner = Path(settings.asr_zipformer_joiner_path)
+        tokens = Path(settings.asr_zipformer_tokens_path)
+        for path in (encoder, decoder, joiner, tokens):
+            if not path.is_file():
+                raise FileNotFoundError(f"zipformer weight missing: {path}")
+        recognizer = load_zipformer_recognizer(
+            encoder=encoder,
+            decoder=decoder,
+            joiner=joiner,
+            tokens=tokens,
+            sample_rate=settings.ws_sample_rate_hz,
+            hotword_score=settings.hotword_score,
+        )
+        warmup_recognizer(recognizer, settings.ws_sample_rate_hz)
+        pool = cls(
+            slots=settings.asr_pool_slots,
+            timeout_s=settings.asr_finish_timeout_ms / 1000.0,
+            metrics=metrics,
+            transcript="",
+            backend="zipformer",
+            supports_hotwords=False,
+        )
+        pool.recognizer = recognizer
+        pool.sample_rate_hz = settings.ws_sample_rate_hz
+        return pool
+
+    @classmethod
     def load_real(cls, settings: Settings, metrics: StageMetrics) -> AsrPool:
         """Refuse empty backend. Missing weights fail here, not on the first caller."""
         backend = settings.asr_backend.strip()
@@ -184,9 +255,11 @@ class AsrPool:
             raise AsrBackendError("asr_backend is empty")
         if backend == "stub":
             return cls.stub(settings, metrics)
-        if backend not in {"zipformer", "whisper_la2"}:
-            raise AsrBackendError(f"unknown asr_backend {backend}")
-        raise FileNotFoundError(f"asr backend {backend} weights are not pinned")
+        if backend == "zipformer":
+            return cls.zipformer(settings, metrics)
+        if backend == "whisper_la2":
+            raise FileNotFoundError("asr backend whisper_la2 weights are not pinned")
+        raise AsrBackendError(f"unknown asr_backend {backend}")
 
     def start_stream(
         self,

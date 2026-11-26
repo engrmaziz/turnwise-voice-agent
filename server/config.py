@@ -68,6 +68,16 @@ class Settings(BaseSettings):
     audio_clip_peak: int = 32760
     headphones_pcm_path: str = "client/prompts/headphones.pcm"
     asr_backend: str = ""
+    asr_zipformer_encoder_path: str = (
+        "models/weights/zipformer/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+    )
+    asr_zipformer_decoder_path: str = (
+        "models/weights/zipformer/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+    )
+    asr_zipformer_joiner_path: str = (
+        "models/weights/zipformer/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+    )
+    asr_zipformer_tokens_path: str = "models/weights/zipformer/tokens.txt"
     asr_pool_slots: int = 1
     asr_finish_timeout_ms: int = 200
     asr_stub_transcript: str = "book tuesday at two thirty"

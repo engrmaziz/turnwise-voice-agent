@@ -5,14 +5,14 @@ Python 3.11+, [uv](https://docs.astral.sh/uv/), optional Docker for the observab
 ## Local process
 
 ```bash
-uv sync --all-groups --extra tts
+uv sync --all-groups --extra tts --extra asr
 uv run python scripts/download_silero_vad.py
 uv run python scripts/download_models.py
 uv run pytest
 uv run python -m server
 ```
 
-`scripts/download_models.py` reads `models/lock.toml`. A sha256 mismatch exits 1. Empty hashes skip unless you pass `--required`. Default `--required` is false so CI stays weight-free. The Piper extra (`uv sync --extra tts`) is optional; CI does not install it. After the voice files land, set `TURNWISE_TTS_BACKEND=piper` to leave the silence stub. Default `tts_backend` stays empty.
+`scripts/download_models.py` reads `models/lock.toml`. A sha256 mismatch exits 1. Empty hashes skip unless you pass `--required`. Default `--required` is false so CI stays weight-free. The Piper extra (`uv sync --extra tts`) and Zipformer extra (`uv sync --extra asr`) are optional; CI does not install them. After the voice files land, set `TURNWISE_TTS_BACKEND=piper` to leave the silence stub. After Zipformer weights land, set `TURNWISE_ASR_BACKEND=zipformer` to leave the stub recognizer. Defaults stay empty.
 
 `GET http://127.0.0.1:8000/health` is 200 even when ASR/TTS/LLM weights are missing. The JSON then has `degraded_asr`, `degraded_tts`, and `degraded_llm` true. `tts_backend=piper` with a missing ONNX is still 200 and `degraded_tts` true.
 

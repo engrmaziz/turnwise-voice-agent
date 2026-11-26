@@ -28,3 +28,20 @@ def run_phase3_benches(
         render_adr006(compare, json_path=compare_path.as_posix()),
         encoding="utf-8",
     )
+
+
+def main() -> int:
+    from server.config import get_settings
+
+    settings = get_settings()
+    run_phase3_benches(
+        settings,
+        results_dir=Path("docs/results"),
+        adr_path=Path("docs/adr/ADR-006-asr-backend.md"),
+        supports_hotwords=True,
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

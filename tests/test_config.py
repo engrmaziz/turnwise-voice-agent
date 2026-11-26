@@ -47,6 +47,8 @@ def test_default_backchannel_list_excludes_yes() -> None:
     assert settings.regex_slots_enabled is False
     assert settings.repair_handoff_after == 3
     assert settings.tool_filler_after_ms == 300
+    assert settings.asr_backend == ""
+    assert settings.asr_zipformer_tokens_path == "models/weights/zipformer/tokens.txt"
     assert settings.tts_backend == ""
     assert settings.tts_piper_onnx_path == "models/weights/piper/en_US-amy-low.onnx"
     assert settings.tts_piper_config_path == "models/weights/piper/en_US-amy-low.onnx.json"

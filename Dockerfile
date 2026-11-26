@@ -23,7 +23,7 @@ COPY training ./training
 COPY data ./data
 COPY client ./client
 
-RUN uv sync --frozen --no-dev --extra tts
+RUN uv sync --frozen --no-dev --extra tts --extra asr
 
 ENV PATH="/app/.venv/bin:$PATH"
 

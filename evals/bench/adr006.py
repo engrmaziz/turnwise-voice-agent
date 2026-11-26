@@ -38,7 +38,7 @@ def render_adr006(rows: list[BenchRow], *, json_path: str) -> str:
         "# ADR-006: ASR backend",
         "",
         "- Status: Proposed" if choice == "blocked" else "- Status: Accepted",
-        "- Date: 2026-11-26",
+        "- Date: 2026-11-27",
         "",
         "## Context",
         "",
@@ -70,9 +70,11 @@ def render_adr006(rows: list[BenchRow], *, json_path: str) -> str:
         [
             "## Consequences",
             "",
-            "- The sample env file records the chosen value, which is empty while blocked.",
+            "- Default `TURNWISE_ASR_BACKEND` stays empty so CI stays weight-free. "
+            "Operators set it to the chosen backend after `uv sync --extra asr` "
+            "and `python scripts/download_models.py`.",
             "- Hotword entity WER is a separate JSON; an `unsupported` on-row is not a zero.",
-            "- ADR-003 stays Proposed until TTS and LLM rows are also chosen.",
+            "- ADR-003 stays Proposed until LLM rows are also chosen.",
             "",
         ]
     )

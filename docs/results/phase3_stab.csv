@@ -1,3 +1,3 @@
 backend,stabilization_delay_ms_p50,status,delay_basis
-zipformer,,blocked,utterance_end
+zipformer,173.73774999578018,ok,utterance_end
 whisper_la2,,blocked,utterance_end

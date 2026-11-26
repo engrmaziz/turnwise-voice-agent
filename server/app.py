@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import structlog
 from fastapi import FastAPI, Request, Response, WebSocket
 from fastapi.responses import FileResponse
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest
@@ -28,6 +29,8 @@ from server.log_setup import configure_logging
 from server.pii import PiiRedactor
 from server.playback import ClosedCallSnapshot
 from server.telemetry import Tracing, start_tracing
+
+_LOG = structlog.get_logger("server.app")
 
 
 def new_audio_handler() -> AudioInHandler:
@@ -198,7 +201,14 @@ def _load_asr(settings: Settings, metrics: StageMetrics) -> AsrPool:
     backend = settings.asr_backend.strip()
     if backend in {"", "stub"}:
         return AsrPool.stub(settings, metrics)
-    return AsrPool.load_real(settings, metrics)
+    try:
+        return AsrPool.load_real(settings, metrics)
+    except ImportError:
+        _LOG.warning("asr_import_failed", backend=backend)
+        return AsrPool.unavailable(settings, metrics)
+    except (OSError, FileNotFoundError, ValueError, RuntimeError) as exc:
+        _LOG.warning("asr_load_failed", backend=backend, error=str(exc))
+        return AsrPool.unavailable(settings, metrics)
 
 
 def _load_turn(settings: Settings) -> TurnScorer:
@@ -263,7 +273,10 @@ def _degraded_tts(container: AppContainer) -> bool:
 
 def _degraded_asr(container: AppContainer) -> bool:
     backend = container.settings.asr_backend.strip()
-    return backend in {"", "stub"}
+    pool = container.asr_pool
+    if backend in {"", "stub"}:
+        return True
+    return pool is None or pool.backend != backend
 
 
 def _container(request: Request) -> AppContainer:

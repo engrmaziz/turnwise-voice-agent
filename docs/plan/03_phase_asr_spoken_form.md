@@ -84,7 +84,7 @@ Demo-able outcome: `docs/results/phase3.md` contains two rows from JSON, or one 
 |---|---|---|---|---|---|---|
 | T3.2.1 | LocalAgreement-2: commit the prefix two consecutive hypotheses share | `nlp/local_agreement.py` | T3.1.2 | 5 | landed | `tests/test_local_agreement.py`: "book tue" then "book tuesday at" commits "book " only after the second call agrees |
 | T3.2.2 | Run both backends on the same 20 fixtures | `evals/bench/asr_compare.py`, `docs/benchmarks.md` | T3.2.1, T1.4.2 | 5 | landed | JSON contains `stabilization_delay_ms` p50 and p95 per backend. The markdown is rendered from the JSON |
-| T3.2.3 | Write the choice | `docs/adr/ADR-006-asr-backend.md` | T3.2.2 | 3 | landed (backend blocked) | ADR picks the backend whose finalize p50 is ≤ 100 ms TARGET. If neither is, it picks the lower one and marks the budget missed. It does not average them |
+| T3.2.3 | Write the choice | `docs/adr/ADR-006-asr-backend.md` | T3.2.2 | 3 | landed (zipformer; 100 ms TARGET missed) | ADR picks the backend whose finalize p50 is ≤ 100 ms TARGET. If neither is, it picks the lower one and marks the budget missed. It does not average them |
 
 Implementation notes. Stabilization delay is the time from the end of the spoken word in the fixture alignment to the first hypothesis where that word sits inside `stable_prefix`. Fixtures without alignments report delay only at utterance end, and the column says `utterance_end`. LocalAgreement on Whisper is not the hot path unless ADR-006 says the delay fits. A 3-second delay from the published Whisper streaming papers is a reason to reject it, but this plan does not copy that number into the results file as if it were measured here.
 

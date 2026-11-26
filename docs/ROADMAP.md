@@ -26,7 +26,7 @@ Done. Measured rows: `docs/results/phase2.md`. Speaker-versus-headphones AEC row
 
 ## Phase 3 — Streaming ASR and spoken form
 
-Done. Measured and blocked rows: `docs/results/phase3.md`. ADR-006 leaves `asr_backend` empty.
+Done. Measured rows: `docs/results/phase3.md`. ADR-006 Accepted **zipformer** (compare finalize p50 173.7 ms, TARGET 100 ms missed). Default `asr_backend` stays empty.
 
 - The recognizer emits partials and finals.
 - Hotwords follow the dialogue state. An entity word-error ablation, biasing on and off, is written down.

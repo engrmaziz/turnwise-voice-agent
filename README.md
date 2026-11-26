@@ -4,7 +4,7 @@ A fully local, streaming voice agent where deterministic dialogue control owns c
 
 Clinic receptionist: book, reschedule, and cancel appointments, answer FAQs, escalate urgent symptoms, hand off to a human. $0 to run after the hardware you already own. No hosted speech or model API on the default path.
 
-**This checkout is Phase 0 through Phase 10.** The event bus, PCM16 WebSocket, Silero VAD, a stub streaming ASR, rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub by default; CPU Piper when `TURNWISE_TTS_BACKEND=piper`), play-ack TTFA, paralinguistic courtesy (fusion + two-turn offer), a scripted eval harness (DB judge, virtual-clock matrix, CI smoke), per-turn traces, Grafana panels 1–12, a scripted load driver, three degradation drills, model lock/download, and compose packaging are in. The LLM client is a stub. Real ASR and emotion weights are not pinned (ADR-006, ADR-011). Piper CPU first-chunk p50 is 33.9 ms (`docs/results/phase7_piper.md`). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number. Nine hundred virtual calls are not claimed. Load knee is 16 on stub play-ack and **1** on Piper play-ack (histogram p95 1.0 s at n=1, `product_quote=false`; [`docs/results/phase10_load.md`](docs/results/phase10_load.md), [`docs/results/phase10_load_piper.md`](docs/results/phase10_load_piper.md)). ADR-003 stays Proposed. ADR-004 stays blocked. ADR-013 picks CPU Piper (A); B/C need an LLM TTFT row.
+**This checkout is Phase 0 through Phase 10.** The event bus, PCM16 WebSocket, Silero VAD, streaming ASR (stub by default; CPU Zipformer when `TURNWISE_ASR_BACKEND=zipformer`), rule-based ITN, clinic-clock date resolution, a hybrid endpointer, gated barge-in, spoken NLU, the table-driven dialogue FSM, token-overlap FAQ, SQLite bookings, streaming TTS (silence stub by default; CPU Piper when `TURNWISE_TTS_BACKEND=piper`), play-ack TTFA, paralinguistic courtesy (fusion + two-turn offer), a scripted eval harness (DB judge, virtual-clock matrix, CI smoke), per-turn traces, Grafana panels 1–12, a scripted load driver, three degradation drills, model lock/download, and compose packaging are in. The LLM client is a stub. Whisper and emotion weights are not pinned (ADR-011). ADR-006 Accepted **zipformer** (compare finalize p50 173.7 ms, TARGET 100 ms missed; default `asr_backend` empty). Piper CPU first-chunk p50 is 33.9 ms (`docs/results/phase7_piper.md`). The golden NLU set is `golden_incomplete`; slot F1 is unpublished. Product SLOs are TARGETS and unmet. Acted-emotion F1 is not a product number. Nine hundred virtual calls are not claimed. Load knee is 16 on stub play-ack and **1** on Piper play-ack (histogram p95 1.0 s at n=1, `product_quote=false`; [`docs/results/phase10_load.md`](docs/results/phase10_load.md), [`docs/results/phase10_load_piper.md`](docs/results/phase10_load_piper.md)). ADR-003 stays Proposed. ADR-004 stays blocked. ADR-013 picks CPU Piper (A); B/C need an LLM TTFT row.
 
 ## Scope
 
@@ -24,7 +24,7 @@ Urgent-symptom keywords (chest pain, cannot breathe, and the list in settings) e
 
 ### Non-goals
 
-HIPAA certification or a compliance claim. Server-side acoustic echo cancellation (browser `echoCancellation` only). Multilingual recognition, outbound dialing, payments, insurance eligibility, prescribing. Letting the language model choose dialogue state, check availability, write a booking, or decide urgency. ADR-003 stays Proposed: ASR and LLM are unnamed. ADR-010 names CPU Piper from a measured first-chunk row; default `tts_backend` stays empty.
+HIPAA certification or a compliance claim. Server-side acoustic echo cancellation (browser `echoCancellation` only). Multilingual recognition, outbound dialing, payments, insurance eligibility, prescribing. Letting the language model choose dialogue state, check availability, write a booking, or decide urgency. ADR-003 stays Proposed: LLM is unnamed. ADR-006 names CPU Zipformer from a measured compare row; default `asr_backend` stays empty. ADR-010 names CPU Piper from a measured first-chunk row; default `tts_backend` stays empty.
 
 ## SLO targets (unmet)
 
@@ -57,7 +57,7 @@ Event-driven pipeline: one asyncio task per stage per call, bounded queues, ever
 Python 3.11+, [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync --all-groups
+uv sync --all-groups --extra tts --extra asr
 uv run python scripts/download_silero_vad.py
 uv run pytest
 uv run python -m evals.bench
@@ -96,8 +96,8 @@ Settings: [`.env.example`](.env.example), `TURNWISE_` prefix. An unset `TURNWISE
 | M2.3 Silero VAD, hysteresis, pre-roll | done |
 | M2.4 silence / clip quality | done |
 | M3.1 stub ASR pool, partials and finals | done |
-| M3.2 Zipformer vs Whisper+LA-2 | done (both backends blocked; see ADR-006) |
-| M3.3 hotwords + entity WER | done (entity WER blocked; TTS missing) |
+| M3.2 Zipformer vs Whisper+LA-2 | done (ADR-006 zipformer; Whisper unpinned; see [`docs/results/phase3.md`](docs/results/phase3.md)) |
+| M3.3 hotwords + entity WER | done (bias off 0.833 error; bias on unsupported) |
 | M3.4 ITN, spoken form kept | done (NeMo missing; rule fallback) |
 | M3.5 relative dates + slot confidence | done |
 | M4.1 hybrid endpointer, digit patience | done |
