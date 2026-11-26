@@ -7,7 +7,7 @@ required = false
 [[model]]
 name = "silero_vad"
 path = "models/weights/silero_vad.onnx"
-sha256 = ""
+sha256 = "f6f4407b41e05e277e7f5cfd9b9ae957b1dfe763c6076a934734c0b448e09b31"
 url = "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx"
 version = ""
-note = "Quoted in docs/results/phase2.md. Benchmarks.md does not pin Zipformer, Whisper, LLM, or TTS."
+note = "Hashed from models/weights/silero_vad.onnx on this host, 2204103 bytes, same size as docs/results/phase2.md. Benchmarks.md does not pin Zipformer, Whisper, LLM, or TTS."

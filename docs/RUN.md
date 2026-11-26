@@ -34,4 +34,4 @@ Recorded boot: [`docs/results/phase10_compose.md`](results/phase10_compose.md). 
 uv run python -m evals.load --n 2 --out-dir docs/results
 ```
 
-The driver stops after two consecutive P95 misses versus 1200 ms. Scripted callers do not play-ack, so N=1 is already a miss and the knee is `n=0 failed at 1`. JSON includes `platform.platform()` and `adr004_tier=blocked`.
+The driver stamps a synthetic TURN_END, runs stub TTS, and acks play index 0. It stops after two consecutive P95 misses versus 1200 ms. p95 is a histogram bucket bound. JSON labels `ttfa_path=stub_play_ack` and `product_quote=false`. This host: knee 16 at `load_n_max`. That is not a product TTFA quote. JSON includes `platform.platform()` and `adr004_tier=blocked`.

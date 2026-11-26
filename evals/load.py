@@ -1,7 +1,8 @@
-"""Concurrent scripted load. Knee is the largest N whose TTFA p95 meets 1200 ms.
+"""Concurrent scripted load with stub play-ack.
 
-Scripted NLU inject does not play-ack. A histogram with zero samples is a miss,
-not a guessed p95. ADR-004 stays blocked; the JSON names the host and that fact.
+TTFA samples come from AudioOutHandler.note_play_ack after a synthetic TURN_END.
+That is not a product SLO quote (ADR-012). ADR-004 stays blocked. Histogram p95
+is a Prometheus bucket upper bound, not an interpolated millisecond.
 """
 
 from __future__ import annotations
@@ -14,14 +15,19 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from evals.harness import default_eval_settings, run_scripted
+from prometheus_client import CollectorRegistry
+
+from evals.harness import default_eval_settings
 from evals.judge_db import judge
+from evals.play_path import run_scripted_play
 from evals.schema import find_scenario, load_scenario
-from pipeline.metrics import StageMetrics
+from models.tts_pool import TtsPool
+from pipeline.metrics import StageMetrics, build_stage_metrics
 from server.config import Settings
 
 TTFA_P95_CAP = 1.2
 ADR004_TIER = "blocked"
+TTFA_PATH = "stub_play_ack"
 
 
 def histogram_p95(metrics: StageMetrics) -> tuple[int, float | None]:
@@ -56,29 +62,49 @@ async def run_one_n(
     out: Path,
 ) -> dict[str, object]:
     scenario = load_scenario(find_scenario(scenario_dir, scenario_id))
+    metrics = build_stage_metrics(CollectorRegistry())
+    pool = TtsPool.stub(
+        timeout_ms=settings.tts_timeout_ms,
+        frame_bytes=settings.tts_pcm_bytes,
+    )
     started = time.perf_counter()
-    with TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        tasks = [
-            run_scripted(scenario, db=tmp_path / f"load-{n}-{index}.sqlite", settings=settings)
-            for index in range(n)
-        ]
-        traces = await asyncio.gather(*tasks)
+    try:
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            tasks = [
+                run_scripted_play(
+                    scenario,
+                    db=tmp_path / f"load-{n}-{index}.sqlite",
+                    settings=settings,
+                    metrics=metrics,
+                    pool=pool,
+                )
+                for index in range(n)
+            ]
+            traces = await asyncio.gather(*tasks)
+    finally:
+        pool.close()
     elapsed = time.perf_counter() - started
     successes = sum(1 for trace in traces if judge(scenario, trace, settings=settings).success)
+    samples, p95 = histogram_p95(metrics)
+    miss = samples <= 0 or p95 is None or float(p95) > TTFA_P95_CAP
     payload: dict[str, object] = {
         "n": n,
         "scenario_id": scenario_id,
         "elapsed_s": elapsed,
         "task_success": successes / n if n else 0.0,
-        "ttfa_samples": 0,
-        "ttfa_p95_s": None,
-        "status": "miss",
-        "reason": "no_play_ack_samples",
+        "ttfa_samples": samples,
+        "ttfa_p95_s": p95,
+        "ttfa_p95_source": "histogram_bucket",
+        "ttfa_path": TTFA_PATH,
+        "product_quote": False,
+        "status": "miss" if miss else "hit",
+        "reason": _row_reason(samples, miss),
         "platform": platform.platform(),
         "adr004_tier": ADR004_TIER,
         "time_scale": settings.eval_time_scale,
         "gpu": "no_gpu_smi_on_event_loop",
+        "tts_backend": "stub",
     }
     await asyncio.to_thread(_write_json, out, payload)
     return payload
@@ -123,11 +149,21 @@ async def run_until_knee(
         "platform": platform.platform(),
         "adr004_tier": ADR004_TIER,
         "ttfa_p95_cap_s": TTFA_P95_CAP,
+        "ttfa_path": TTFA_PATH,
+        "product_quote": False,
         "rows": rows,
         "reason": "n=0 failed at 1" if knee == 0 else "largest_n_at_or_under_cap",
     }
     await asyncio.to_thread(_write_json, out_dir / "phase10_load.json", summary)
     return summary
+
+
+def _row_reason(samples: int, miss: bool) -> str:
+    if samples <= 0:
+        return "no_play_ack_samples"
+    if miss:
+        return "over_cap"
+    return "at_or_under_cap"
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
@@ -140,12 +176,15 @@ def render_markdown(summary: dict[str, object]) -> str:
     lines = [
         "# Phase 10 load",
         "",
-        "Numbers are copied from JSON. TTFA p95 is not invented when play-ack count is 0.",
+        "TTFA is stub play-ack (`ttfa_path=stub_play_ack`). It is not a product SLO quote.",
+        "p95 is a Prometheus histogram bucket upper bound. ADR-004 stays blocked.",
         "",
         f"- `platform`: {summary.get('platform')}",
         f"- `adr004_tier`: {summary.get('adr004_tier')}",
         f"- `knee`: {summary.get('knee')}",
         f"- `reason`: {summary.get('reason')}",
+        f"- `ttfa_path`: {summary.get('ttfa_path')}",
+        f"- `product_quote`: {summary.get('product_quote')}",
         "",
         "| n | ttfa_samples | ttfa_p95_s | status | elapsed_s |",
         "|---|---|---|---|---|",
@@ -158,6 +197,13 @@ def render_markdown(summary: dict[str, object]) -> str:
                 f"| {row.get('n')} | {row.get('ttfa_samples')} | {row.get('ttfa_p95_s')} |"
                 f" {row.get('status')} | {row.get('elapsed_s')} |"
             )
+    lines.append("")
+    lines.append("## Contention (ADR-013)")
+    lines.append("")
+    lines.append(
+        "Stub play-ack p95 is not a synthesizer p95 (ADR-010). ADR-013 does not pick "
+        "A/B/C from this column. Tokens/s is not used."
+    )
     lines.append("")
     return "\n".join(lines)
 

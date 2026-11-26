@@ -124,6 +124,10 @@ class ChunkerHandler:
         if self._forward is not None:
             await self._forward(event)
 
+    async def drain(self) -> None:
+        """Wait out or cancel a leftover hold so the next turn starts clean."""
+        await self._cancel_hold()
+
     async def _cancel_hold(self) -> None:
         task = self._hold_task
         self._hold_task = None

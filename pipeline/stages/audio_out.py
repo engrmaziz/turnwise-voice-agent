@@ -233,7 +233,14 @@ class AudioOutHandler:
         if end >= start:
             self._playback.note_chunk(start, end, "cannot_speak")
 
-    def _reset_play(self) -> None:
+    def reset_play(self) -> None:
+        """Start a new play clock. Eval uses this at each synthetic TURN_END."""
         self._play_index = 0
         self._filler_by_frame.clear()
         self._playback.reset()
+        self._saw_ttfa = False
+        self._saw_content = False
+        self._ttfa_turn_end = None
+
+    def _reset_play(self) -> None:
+        self.reset_play()

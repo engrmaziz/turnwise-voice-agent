@@ -1,0 +1,18 @@
+{
+  "n": 4,
+  "scenario_id": "book_avery",
+  "elapsed_s": 0.16878320000250824,
+  "task_success": 1.0,
+  "ttfa_samples": 16,
+  "ttfa_p95_s": 0.05,
+  "ttfa_p95_source": "histogram_bucket",
+  "ttfa_path": "stub_play_ack",
+  "product_quote": false,
+  "status": "hit",
+  "reason": "at_or_under_cap",
+  "platform": "Windows-10-10.0.26300-SP0",
+  "adr004_tier": "blocked",
+  "time_scale": 0.0,
+  "gpu": "no_gpu_smi_on_event_loop",
+  "tts_backend": "stub"
+}
