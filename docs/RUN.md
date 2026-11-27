@@ -5,7 +5,7 @@ Python 3.11+, [uv](https://docs.astral.sh/uv/), optional Docker for the observab
 ## Local process
 
 ```bash
-uv sync --all-groups --extra tts --extra asr
+uv sync --all-groups --extra tts --extra asr --extra whisper
 uv run python scripts/download_silero_vad.py
 uv run python scripts/download_models.py
 uv run pytest
@@ -24,9 +24,9 @@ uv run python -m server
 docker compose -f infra/docker-compose.yml up --build
 ```
 
-That starts the app (`:8000`), Prometheus (`:9090`), Grafana (`:3000`, anonymous viewer), and Jaeger (UI `:16686`). Jaeger OTLP gRPC stays on the compose network at `jaeger:4317` and is not published on the host, so a local collector already bound to 4317 does not block the container. If host 8000 or 9090 is already taken, override `TURNWISE_HOST_HTTP_PORT` and `TURNWISE_HOST_PROM_PORT` (and `TURNWISE_HOST_GRAFANA_PORT` if 3000 is busy).
+That starts the app (host `:8010` → container `:8000`), Prometheus (host `:9080` → container `:9090`), Grafana (`:3000`, anonymous viewer), and Jaeger (UI `:16686`, host OTLP `:4217` → container `:4317`). The app still talks to `jaeger:4317` on the compose network. Host 8000/9090/4317 are often already taken; if 8010/9080/4217 are busy, set `TURNWISE_HOST_HTTP_PORT=8011`, `TURNWISE_HOST_PROM_PORT=9070`, `TURNWISE_HOST_OTLP_PORT=4117` (and `TURNWISE_HOST_GRAFANA_PORT` if 3000 is busy). Local `python -m server` still binds `127.0.0.1:8000`.
 
-Recorded boot: [`docs/results/phase10_compose.md`](results/phase10_compose.md). A fail in that file is a fail.
+Recorded boot: [`docs/results/phase10_compose.md`](results/phase10_compose.md) (host 8010/9080/4217 pass; Grafana used 3010 because 3000 was taken). A fail in that file is a fail.
 
 ## Load
 

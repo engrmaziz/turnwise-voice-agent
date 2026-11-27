@@ -4,16 +4,16 @@ Host: Python 3.11.9, Windows-10-10.0.26300-SP0. Numbers below came from running 
 
 ## ASR backends (M3.2)
 
-JSON: `docs/results/phase3_asr_compare.json` from `python -m evals.bench.phase3`. Twenty Piper-spoken fixtures through CPU Zipformer (sherpa-onnx 2.0.3, zipformer2 int8 en-2023-06-26). Whisper+LA-2 stayed `weights_unpinned`. Stabilization delay uses `delay_basis=utterance_end` (post-audio drain, not a paper number).
+JSON: `docs/results/phase3_asr_compare.json` from `python -m evals.bench.phase3`. Twenty Piper-spoken fixtures through CPU Zipformer (sherpa-onnx 2.0.3, zipformer2 int8 en-2023-06-26, `modified_beam_search`). Whisper+LA-2 north-wind: `docs/results/phase3_whisper.json` (`faster-whisper` 1.2.1 `tiny.en` CPU int8). Zipformer stabilization delay uses `delay_basis=utterance_end` (post-audio drain). Whisper stabilization is last-window transcribe after the file ends.
 
 | Backend | Finalize p50 / p95 | Stabilization delay p50 | Delay basis |
 |---|---|---|---|
-| zipformer | 173.7 ms / 213.0 ms | 173.7 ms | utterance_end |
-| whisper_la2 | blocked (`weights_unpinned`) | blocked | utterance_end |
+| zipformer | 173.7 ms / 213.0 ms (20 Piper fixtures) | 173.7 ms | utterance_end |
+| whisper_la2 | 490.8 ms / 529.8 ms (north-wind n=20) | 476.8 ms | la2_after_last_window |
 
-North-wind post-stream drain (different JSON, long SAPI wav already accepted before the clock): `docs/results/bench/20261126T192516Z.json` row `asr.zipformer.finalize` p50 **62.1 ms** / p95 **67.3 ms**. That row is not the ADR-006 pick.
+North-wind Zipformer post-stream drain: `docs/results/phase3_whisper.json` row `asr.zipformer.finalize` p50 **61.8 ms** / p95 **69.5 ms**. That row is not the ADR-006 pick.
 
-ADR-006: **Accepted**, backend **zipformer**. Compare finalize p50 **173.7 ms** misses the 100 ms TARGET. Default `TURNWISE_ASR_BACKEND` stays empty so CI is weight-free. Operators set `zipformer` after `uv sync --extra asr` and `python scripts/download_models.py`. ADR-003 stays Proposed (LLM TTFT still missing).
+ADR-006: **Accepted**, backend **zipformer**. Compare finalize p50 **173.7 ms** misses the 100 ms TARGET. Whisper LA-2 is slower. Default `TURNWISE_ASR_BACKEND` stays empty so CI is weight-free. Operators set `zipformer` after `uv sync --extra asr` and `python scripts/download_models.py`.
 
 ## Entity WER (M3.3)
 
@@ -21,8 +21,10 @@ JSON: `docs/results/phase3_entity_wer.json`. Roster: 15 invented names in `data/
 
 | Bias | Entity error rate | Status |
 |---|---|---|
-| off | 0.833 (25/30 misses) | ok |
-| on |  | unsupported (greedy Zipformer has no hotword API) |
+| off | 0.733 (22/30 misses) | ok (`modified_beam_search`, no phrases) |
+| on | **0.700** (21/30 misses) | ok (uppercase BPE phrases from locked `bpe.model`, `hotword_score=2.0`) |
+
+Score sweep on the same 30 Piper clips: 1.0 → 0.733, 1.5 → 0.733, 2.0 → 0.700. Default `hotword_score` is **2.0**. The moved hypothesis is the second `Jonah Hale` clip (`JONAH HA` → `JONAH HALE`). JSON: `docs/results/phase3_entity_wer.json`.
 
 CSV: `docs/results/phase3_entity_wer.csv`, `docs/results/phase3_stab.csv`.
 

@@ -17,4 +17,4 @@ The ASR backend is **zipformer**. zipformer finalize p50 is 173.7 ms. Finalize p
 
 - Default `TURNWISE_ASR_BACKEND` stays empty so CI stays weight-free. Operators set it to the chosen backend after `uv sync --extra asr` and `python scripts/download_models.py`.
 - Hotword entity WER is a separate JSON; an `unsupported` on-row is not a zero.
-- ADR-003 stays Proposed until LLM rows are also chosen.
+- ADR-003 is Accepted. LLM TTFT is in `docs/benchmarks.md`. Default `asr_backend` stays empty.

@@ -47,7 +47,7 @@ Done. Measured rows: `docs/results/phase4.md`. Week-6 book path stays Phase 6.
 
 ## Phase 5 — NLU
 
-Done. Measured and blocked rows: `docs/results/phase5.md`. Golden is `golden_incomplete`; phonetic sweep is `untuned`. Slot F1 is unpublished.
+Done. Measured rows: `docs/results/phase5.md`. Golden is 500 Zipformer-ASR rows with `reviewer=bio_projection` (not a waveform listen). Student slot F1 **0.7173**. Phonetic sweep winner 0.75 / 0.03.
 
 - Training text is TTS, then noise, then this recognizer. Clean transcripts are not the training distribution.
 - A 500-example golden set is hand-checked.
@@ -117,9 +117,9 @@ Done in Phase 10 (`docs/plan/10_phase_hardening_launch.md`, `docs/results/phase1
 
 ## Phase 12 — Packaging
 
-Done in Phase 10 (`docs/plan/10_phase_hardening_launch.md`, `docs/results/phase10_compose.md`, `docs/RUN.md`, `docs/demo.md`). ADR-003 stays Proposed.
+Done in Phase 10 (`docs/plan/10_phase_hardening_launch.md`, `docs/results/phase10_compose.md`, `docs/RUN.md`, `docs/demo.md`). ADR-003 is Accepted (Zipformer / Piper / Ollama `qwen3.5:4b`; defaults empty).
 
 - `docker compose up` starts the server, the workers that were actually built, Grafana, and Jaeger, after a documented model download. Health is 200 with missing weights and degraded flags.
 - The README shows the architecture, the SLO table with measured values beside the targets, the ablations, and the known limitations. Every millisecond or percent in the SLO table cites `docs/results/`.
-- ADR-003 is Accepted or still Proposed, matching whether a stack was chosen. It stays Proposed.
+- ADR-003 is Accepted (Zipformer / Piper / Ollama `qwen3.5:4b`; defaults empty).
 - A demo script covers a booking, a barge-in mid-confirmation, a noisy name resolved against the catalog, an urgent escalation, and the live dashboard.

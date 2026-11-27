@@ -20,9 +20,18 @@ Realtime TTFA is the only TTFA that may be quoted; this run did not invent it.
 
 ## Realtime
 
-- `status`: skipped
-- `n`: 0
-- `reason`: eval_time_scale is virtual
+JSON: `docs/results/phase9_realtime.json`. Wall-clock 20 ms PCM, energy-VAD (Silero path disabled for this driver so the endpointer can fire), stub TTS. `product_quote=false` (ADR-012: stub play-ack is not a product SLO).
+
+- `status`: ok
+- `n`: 30
+- `requested_n`: 30
+- `clock`: realtime
+- `pace_s`: 0.02
+- `sessions_acked`: 30
+- `ttfa_samples`: 30
+- `ttfa_p95_s`: 0.05 (histogram bucket)
+- `ttfa_path`: stub_play_ack
+- `vad`: energy_fallback
 
 ## Ablations
 

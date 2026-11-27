@@ -1,0 +1,81 @@
+{
+  "knee": 0,
+  "n_max_ran": 2,
+  "requested_n_max": 16,
+  "platform": "Windows-10-10.0.26300-SP0",
+  "adr004_tier": "blocked",
+  "ttfa_p95_cap_s": 1.2,
+  "ttfa_path": "piper_play_ack",
+  "product_quote": false,
+  "tts_backend": "piper:en_US-amy-low.onnx",
+  "llm_backend": "ollama",
+  "llm_max_batch": 4,
+  "rows": [
+    {
+      "n": 1,
+      "scenario_id": "book_avery",
+      "elapsed_s": 5.37012110001524,
+      "task_success": 1.0,
+      "ttfa_samples": 4,
+      "sessions_acked": 1,
+      "ttfa_p95_s": 2.0,
+      "ttfa_p95_source": "histogram_bucket",
+      "ttfa_path": "piper_play_ack",
+      "product_quote": false,
+      "status": "miss",
+      "reason": "over_cap",
+      "platform": "Windows-10-10.0.26300-SP0",
+      "adr004_tier": "blocked",
+      "time_scale": 0.0,
+      "gpu": "no_gpu_smi_on_event_loop",
+      "tts_backend": "piper:en_US-amy-low.onnx",
+      "llm_backend": "ollama",
+      "llm_max_batch": 4
+    },
+    {
+      "n": 2,
+      "scenario_id": "book_avery",
+      "elapsed_s": 4.336899200017797,
+      "task_success": 1.0,
+      "ttfa_samples": 4,
+      "sessions_acked": 1,
+      "ttfa_p95_s": 1.2,
+      "ttfa_p95_source": "histogram_bucket",
+      "ttfa_path": "piper_play_ack",
+      "product_quote": false,
+      "status": "miss",
+      "reason": "sessions_without_play_ack",
+      "platform": "Windows-10-10.0.26300-SP0",
+      "adr004_tier": "blocked",
+      "time_scale": 0.0,
+      "gpu": "no_gpu_smi_on_event_loop",
+      "tts_backend": "piper:en_US-amy-low.onnx",
+      "llm_backend": "ollama",
+      "llm_max_batch": 4
+    }
+  ],
+  "reason": "n=0 failed at 1",
+  "contention": {
+    "pick": "blocked",
+    "reason": "no synthesizer p95 column",
+    "strategy_a": {
+      "name": "cpu_piper",
+      "status": "ok",
+      "knee": 0,
+      "ttfa_p95_s": null,
+      "llm_backend": "unavailable",
+      "llm_max_batch": 1
+    },
+    "strategy_b": {
+      "name": "llm_speaking_priority",
+      "status": "blocked",
+      "reason": "llm_unavailable"
+    },
+    "strategy_c": {
+      "name": "llm_max_batch_4",
+      "status": "blocked",
+      "reason": "llm_unavailable"
+    },
+    "product_quote": false
+  }
+}

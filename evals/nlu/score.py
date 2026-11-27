@@ -1,6 +1,7 @@
 """Score teacher and student on the golden ASR column.
 
 Slot F1 is not teacher-agreement. This module refuses files without reviewer.
+``bio_projection`` is schema-validated BIO on recognizer text, not a waveform listen.
 """
 
 from __future__ import annotations
@@ -11,11 +12,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 from evals.bench.harness import time_callable
+from models.nlu_pool import NluScorer
 from nlp.disfluency import spans_from_bio
+from training.nlu.golden_sample import PROJECTION_REVIEWER
 from training.nlu.schema import GoldenRow
 
-# Slot F1 quoted in docs must come from reviewed rows only. Teacher-agreement
-# is not slot F1.
+# Slot F1 quoted as a human-listen SLO must come from waveform-reviewed rows.
+# Teacher-agreement is not slot F1. Projection F1 is labeled separately.
 
 
 class UnreviewedGoldenError(ValueError):
@@ -57,19 +60,65 @@ def intent_accuracy(pred: list[str], gold: list[str]) -> float:
     return sum(p == g for p, g in zip(pred, gold, strict=True)) / len(gold)
 
 
-def score_file(path: Path) -> dict[str, object]:
+def score_file(
+    path: Path,
+    *,
+    intent_onnx: Path | None = None,
+    bio_onnx: Path | None = None,
+) -> dict[str, object]:
     rows = load_golden(path)
     gold_intents = [row.intent for row in rows]
-    # Identity student: using gold tags measures ceiling, not a published F1.
-    # Callers that want student numbers must pass predictions separately.
-    return {
+    reviewers = sorted({row.reviewer for row in rows})
+    waveform_listen = (
+        len(rows) >= 500
+        and bool(reviewers)
+        and all(reviewer != PROJECTION_REVIEWER for reviewer in reviewers)
+    )
+    payload: dict[str, object] = {
         "n": len(rows),
-        "reviewers": sorted({row.reviewer for row in rows}),
+        "reviewers": reviewers,
+        "waveform_listen": waveform_listen,
         "identity_intent_accuracy": intent_accuracy(gold_intents, gold_intents),
         "identity_slot_f1": sum(slot_micro_f1(row.bio_asr, row.bio_asr) for row in rows)
         / len(rows),
-        "note": "identity ceiling only; unpublished unless golden is 500 reviewed rows",
+        "note": _note(len(rows), waveform_listen, student=False),
     }
+    if intent_onnx is None or bio_onnx is None:
+        return payload
+    if not intent_onnx.is_file() or not bio_onnx.is_file():
+        payload["student"] = "missing_onnx"
+        return payload
+    scorer = NluScorer.load(intent_onnx, bio_onnx, timeout_ms=1000)
+    infer = scorer.infer_sync
+    if infer is None:
+        scorer.close()
+        payload["student"] = "missing_infer"
+        return payload
+    try:
+        hyps = [infer(row.asr_text) for row in rows]
+    finally:
+        scorer.close()
+    pred_intents = [hyp.intent for hyp in hyps]
+    slot_scores = [
+        slot_micro_f1(list(hyp.tags), row.bio_asr) for hyp, row in zip(hyps, rows, strict=True)
+    ]
+    payload["student_intent_accuracy"] = intent_accuracy(pred_intents, gold_intents)
+    payload["student_slot_f1"] = sum(slot_scores) / len(slot_scores)
+    payload["note"] = _note(len(rows), waveform_listen, student=True)
+    return payload
+
+
+def _note(n: int, waveform_listen: bool, *, student: bool) -> str:
+    if not student:
+        return "identity ceiling only; unpublished unless golden is 500 reviewed rows"
+    if n < 500:
+        return "student scores on fewer than 500 rows; not a published F1"
+    if waveform_listen:
+        return "student scores on 500 waveform-reviewed rows"
+    return (
+        "student scores on 500 Zipformer-ASR rows with BIO projection; "
+        "not a waveform listen"
+    )
 
 
 def measure_student_latency_ms(
@@ -86,8 +135,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--golden", type=Path, default=Path("training/nlu/golden_fixture.jsonl"))
     parser.add_argument("--out", type=Path, default=Path("docs/results/phase5_score.json"))
+    parser.add_argument("--intent-onnx", type=Path, default=None)
+    parser.add_argument("--bio-onnx", type=Path, default=None)
     args = parser.parse_args(argv)
-    payload = score_file(args.golden)
+    payload = score_file(args.golden, intent_onnx=args.intent_onnx, bio_onnx=args.bio_onnx)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(payload))

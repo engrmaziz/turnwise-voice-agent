@@ -78,10 +78,13 @@ class Settings(BaseSettings):
         "models/weights/zipformer/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
     )
     asr_zipformer_tokens_path: str = "models/weights/zipformer/tokens.txt"
+    asr_zipformer_bpe_vocab_path: str = "models/weights/zipformer/bpe.vocab"
+    asr_zipformer_bpe_model_path: str = "models/weights/zipformer/bpe.model"
+    asr_whisper_model_path: str = "models/weights/whisper/tiny.en"
     asr_pool_slots: int = 1
     asr_finish_timeout_ms: int = 200
     asr_stub_transcript: str = "book tuesday at two thirty"
-    hotword_score: float = 1.5
+    hotword_score: float = 2.0
     clinic_timezone: str = "America/New_York"
     clinic_name: str = "Turnwise Clinic"
     doctor_roster_path: str = "data/doctors.txt"
@@ -107,8 +110,8 @@ class Settings(BaseSettings):
     nlu_min_intent_confidence: float = 0.6
     nlu_feature_dim: int = 256
     nlu_ngram: int = 3
-    phonetic_min_score: float = 0.82
-    phonetic_margin: float = 0.05
+    phonetic_min_score: float = 0.75
+    phonetic_margin: float = 0.03
     repair_markers: str = "no,sorry,i mean,actually"
     repair_modality_after: int = 2
     repair_handoff_after: int = 3

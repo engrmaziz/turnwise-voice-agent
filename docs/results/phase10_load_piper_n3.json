@@ -1,7 +1,7 @@
 {
   "n": 3,
   "scenario_id": "book_avery",
-  "elapsed_s": 1.3928696999937529,
+  "elapsed_s": 1.3937564000079874,
   "task_success": 1.0,
   "ttfa_samples": 4,
   "sessions_acked": 1,
@@ -16,5 +16,6 @@
   "time_scale": 0.0,
   "gpu": "no_gpu_smi_on_event_loop",
   "tts_backend": "piper:en_US-amy-low.onnx",
+  "llm_backend": "unavailable",
   "llm_max_batch": 1
 }

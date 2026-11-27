@@ -28,6 +28,6 @@ Those are silence-stub wall times. They are not the synthesizer row above.
 
 - Warmup phrases (greeting, fillers, `cannot_speak`) skip the pool on the hot path. Cache-hit p50 is under 5 ms in-process.
 - Content TTFA on a call still needs play-ack through this synthesizer. Stub load p95 is not a product quote (ADR-013).
-- ADR-003 stays Proposed until ASR and LLM rows are also `ok`.
+- ADR-003 was later Accepted (Zipformer / Piper / Ollama `qwen3.5:4b`). This TTS-device ADR stays Accepted.
 - ADR-004 stays blocked (ASR finalize and LLM TTFT missing in the same JSON).
 - Revisit this ADR if a later CPU row misses 200 ms, or when M10.2 measures GPU contention against a synthesizer play-ack p95.

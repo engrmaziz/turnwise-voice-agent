@@ -34,6 +34,7 @@ async def run_scripted_play(
     metrics: StageMetrics,
     pool: TtsPool,
     cache: TtsCache | None = None,
+    llm: LlmClient | None = None,
 ) -> RunTrace:
     """Stamp TURN_END, run dialogue→chunker→TN→audio_out, ack play index 0."""
     if not settings.eval_text_inject:
@@ -67,11 +68,19 @@ async def run_scripted_play(
         metrics=metrics,
         forward=tts_norm,
     )
+    client = (
+        llm
+        if llm is not None
+        else LlmClient.unavailable(
+            timeout_ms=settings.llm_timeout_ms,
+            max_batch=settings.llm_max_batch,
+        )
+    )
     handler = DialogueHandler(
         session=session,
         settings=settings,
         metrics=metrics,
-        llm=LlmClient.unavailable(timeout_ms=settings.llm_timeout_ms),
+        llm=client,
         forward=chunker,
         db_path=db,
         roster=names,

@@ -1,9 +1,12 @@
 {
-  "n": 20,
+  "n": 500,
   "reviewers": [
-    "engrmaziz"
+    "bio_projection"
   ],
+  "waveform_listen": false,
   "identity_intent_accuracy": 1.0,
   "identity_slot_f1": 1.0,
-  "note": "identity ceiling only; unpublished unless golden is 500 reviewed rows"
+  "note": "student scores on 500 Zipformer-ASR rows with BIO projection; not a waveform listen",
+  "student_intent_accuracy": 0.998,
+  "student_slot_f1": 0.7172730158730163
 }

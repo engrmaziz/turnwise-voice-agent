@@ -6,9 +6,14 @@ import argparse
 import json
 from pathlib import Path
 
+from nlp.hotwords import load_roster
+from nlp.nlu_features import tokenize
 from nlp.phonetic import resolve_entity
 from server.config import Settings
 from training.nlu.schema import GoldenRow
+
+STARTING_MIN = 0.82
+STARTING_MARGIN = 0.05
 
 
 def sweep_or_untuned(golden_path: Path, *, complete_n: int = 500) -> dict[str, object]:
@@ -27,9 +32,10 @@ def sweep_or_untuned(golden_path: Path, *, complete_n: int = 500) -> dict[str, o
             "status": "untuned",
             "reason": "golden_incomplete",
             "n": len(rows),
-            "kept": {"phonetic_min_score": 0.82, "phonetic_margin": 0.05},
+            "kept": {"phonetic_min_score": STARTING_MIN, "phonetic_margin": STARTING_MARGIN},
         }
-    grid = []
+    catalog = list(load_roster(Path(Settings().doctor_roster_path)))
+    grid: list[dict[str, float | int]] = []
     settings = Settings()
     for min_score in (0.75, 0.82, 0.9):
         for margin in (0.03, 0.05, 0.08):
@@ -37,21 +43,69 @@ def sweep_or_untuned(golden_path: Path, *, complete_n: int = 500) -> dict[str, o
                 update={"phonetic_min_score": min_score, "phonetic_margin": margin}
             )
             resolved = 0
+            correct = 0
+            eligible = 0
             for row in rows:
-                if "doctor" not in " ".join(row.bio_asr):
+                heard = _heard_doctor(row)
+                gold = _gold_doctor(row.spoken_clean, catalog)
+                if not heard or gold is None:
                     continue
-                heard = " ".join(
-                    tok
-                    for tok, tag in zip(row.asr_text.split(), row.bio_asr, strict=False)
-                    if tag.endswith("doctor")
-                )
-                if not heard:
-                    continue
-                result = resolve_entity(heard, ["Dr. Avery Lang", "Dr. Nia Okonkwo"], tuned)
+                eligible += 1
+                result = resolve_entity(heard, catalog, tuned)
                 if result.entity_id is not None:
                     resolved += 1
-            grid.append({"min": min_score, "margin": margin, "resolved": resolved})
-    return {"status": "swept", "grid": grid}
+                    if result.entity_id == gold:
+                        correct += 1
+            grid.append(
+                {
+                    "min": min_score,
+                    "margin": margin,
+                    "resolved": resolved,
+                    "correct": correct,
+                    "eligible": eligible,
+                }
+            )
+    winner = _pick_cell(grid)
+    return {"status": "swept", "n": len(rows), "grid": grid, "winner": winner}
+
+
+def _gold_doctor(spoken_clean: str, catalog: list[str]) -> str | None:
+    lowered = spoken_clean.lower()
+    hits = [name for name in catalog if name.lower() in lowered or _surname(name) in lowered]
+    if len(hits) == 1:
+        return hits[0]
+    return None
+
+
+def _surname(name: str) -> str:
+    return name.replace("Dr.", " ").strip().split()[-1].lower()
+
+
+def _heard_doctor(row: GoldenRow) -> str:
+    tokens = tokenize(row.asr_text)
+    if len(tokens) != len(row.bio_asr):
+        return ""
+    heard = [
+        token
+        for token, tag in zip(tokens, row.bio_asr, strict=True)
+        if tag.endswith("doctor")
+    ]
+    return " ".join(heard)
+
+
+def _pick_cell(grid: list[dict[str, float | int]]) -> dict[str, float | int]:
+    if not grid:
+        return {"min": STARTING_MIN, "margin": STARTING_MARGIN, "resolved": 0}
+    best = max(grid, key=lambda cell: (int(cell.get("correct", 0)), int(cell["resolved"])))
+    tied = [
+        cell
+        for cell in grid
+        if cell.get("correct") == best.get("correct") and cell["resolved"] == best["resolved"]
+    ]
+    for cell in tied:
+        if cell["min"] == STARTING_MIN and cell["margin"] == STARTING_MARGIN:
+            return cell
+    return tied[0]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -66,17 +120,39 @@ def main(argv: list[str] | None = None) -> int:
         body = (
             "# Phase 5 phonetic sweep\n\n"
             f"Status: **untuned**. Reason: `{result.get('reason')}`.{extra} "
-            "Production keeps `phonetic_min_score=0.82` and `phonetic_margin=0.05`.\n"
+            f"Production keeps `phonetic_min_score={STARTING_MIN}` and "
+            f"`phonetic_margin={STARTING_MARGIN}`.\n"
         )
     else:
-        lines = ["# Phase 5 phonetic sweep", "", "| min | margin | resolved |", "|---|---|---|"]
+        lines = [
+            "# Phase 5 phonetic sweep",
+            "",
+            f"n={result.get('n')} Zipformer-ASR golden rows. Catalog: `data/doctors.txt`.",
+            "",
+            "| min | margin | correct | resolved | eligible |",
+            "|---|---|---|---|---|",
+        ]
         grid = result.get("grid")
         if not isinstance(grid, list):
             raise TypeError("swept result missing grid")
         for item in grid:
             if not isinstance(item, dict):
                 continue
-            lines.append(f"| {item['min']} | {item['margin']} | {item['resolved']} |")
+            lines.append(
+                f"| {item['min']} | {item['margin']} | {item.get('correct', '')} | "
+                f"{item['resolved']} | {item.get('eligible', '')} |"
+            )
+        winner = result.get("winner")
+        if isinstance(winner, dict):
+            lines.extend(
+                [
+                    "",
+                    f"Winner: min=`{winner['min']}` margin=`{winner['margin']}` "
+                    f"correct={winner.get('correct')} resolved={winner['resolved']}. "
+                    "Starting point 0.82/0.05 is kept when tied. Production updates only when "
+                    "this cell beats the starting point on **correct** ids.",
+                ]
+            )
         body = "\n".join(lines) + "\n"
     args.out.write_text(body, encoding="utf-8")
     print(json.dumps(result))

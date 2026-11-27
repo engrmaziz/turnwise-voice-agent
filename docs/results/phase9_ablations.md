@@ -12,13 +12,13 @@ Each section is method, n, and result-or-blocked. JSON: `docs/results/phase9_abl
 
 - Method: biasing on versus off. Columns: entity WER, task success.
 - n: 0
-- Result: **unsupported**. `asr_backend` is empty/stub and has no bias API (ADR-006).
+- Result: **unsupported** for the 900-call task-success column (default `asr_backend` is empty). Entity WER on 30 Piper clips is in `docs/results/phase3.md` (bias off 0.733 / bias on 0.700 at `hotword_score=2.0`).
 
 ## 3. NLU trained on clean text versus ASR output
 
 - Method: two student checkpoints. Clean-text training is T5.4.1 `--clean`, slip.
 - n: 0
-- Result: **blocked** (`clean_text_student_never_trained`). Slot F1 stays unpublished (`golden_incomplete`).
+- Result: **blocked** (`clean_text_student_never_trained`). ASR-trained student slot F1 is **0.7173** on projection BIO (`docs/results/phase5.md`); the clean-text checkpoint was never trained.
 
 ## 4. FSM-first versus model-in-the-loop writer
 

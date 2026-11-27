@@ -46,6 +46,7 @@ def download_one(row: dict[str, object], *, required: bool) -> str:
         return f"skipped:{name}:empty_sha256"
     if dest.is_file():
         verify_file(dest, expected)
+        _export_bpe_vocab(row, dest)
         return f"ok:{name}:existing"
     if not url:
         raise LockError(f"{name} missing url")
@@ -58,7 +59,21 @@ def download_one(row: dict[str, object], *, required: bool) -> str:
     if digest != expected:
         raise LockError(f"hash mismatch for {name}: got {digest} expected {expected}")
     dest.write_bytes(payload)
+    _export_bpe_vocab(row, dest)
     return f"ok:{name}:downloaded"
+
+
+def _export_bpe_vocab(row: dict[str, object], dest: Path) -> None:
+    if str(row.get("name") or "") != "zipformer_en_2023_06_26_bpe_model":
+        return
+    try:
+        from models.asr_zipformer import export_bpe_vocab_from_model
+    except ImportError:
+        return
+    try:
+        export_bpe_vocab_from_model(dest, dest.with_name("bpe.vocab"))
+    except ImportError:
+        return
 
 
 def _timeout_s(row: dict[str, object]) -> int:

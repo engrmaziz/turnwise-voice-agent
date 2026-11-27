@@ -340,7 +340,7 @@ class DialogueHandler:
             fallback=filled,
             settings=self._settings,
             llm=self._llm,
-            paraphrase=False,
+            paraphrase=self._llm.available,
             slots=state.slots,
             metrics=self._metrics,
             session=self._session,

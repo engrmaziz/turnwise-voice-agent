@@ -14,7 +14,7 @@ Every row is a target. None of these have been measured on a call. The only late
 | Task success, 10 dB SNR | ≥ 75% | Same check, with noise mixed at 10 dB SNR. |
 | False barge-in | < 2% of agent utterances | An agent utterance was cancelled when the caller did not take the turn. Backchannels during agent speech are not barge-ins. "Okay" as the answer to a yes/no question is a real turn. |
 | Early cutoff | < 5% of user turns | The agent started a reply before the caller had finished the turn the scenario required. |
-| Slot F1 on ASR output | Report only | Intent/slot scores on recognizer text, not on the clean script. Phase 5 is `golden_incomplete`; no numeric gate until 500 reviewed rows exist (`docs/results/phase5.md`). |
+| Slot F1 on ASR output | Report only | Intent/slot scores on recognizer text, not on the clean script. Student slot F1 **0.7173** on 500 Zipformer-ASR rows with BIO projection (`docs/results/phase5.md`). That is not a waveform-listen SLO. |
 | Urgent-case recall | ~100% | Scenarios marked urgent that reached the escalation path. The keyword list alone must be sufficient; a classifier miss does not block escalation. |
 | Critical-slot error after confirmation | ~0% | The confirmed value equals the scenario's value. The caller saying yes to a wrong readback is a failure. Low-confidence names and numbers are read back spelled or digit by digit, and yes binds the value that was actually played. |
 

@@ -13,7 +13,7 @@ JSON: `docs/results/bench/20261126T200406Z.json`
 
 ## Decision
 
-The operator machine is **16 GB+**. nvidia-smi VRAM 24 GB ADR-003 stays Proposed until a follow-up ADR names exact builds.
+The operator machine is **16 GB+**. nvidia-smi VRAM 24 GB. ADR-003 was later Accepted with named Zipformer / Piper / Ollama builds; this hardware-tier ADR stays Proposed.
 
 ## Consequences
 

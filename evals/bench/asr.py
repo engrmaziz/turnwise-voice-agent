@@ -33,7 +33,7 @@ def measure_asr(settings: Settings, *, speech_wav: Path | None) -> list[BenchRow
         ]
     return [
         _zipformer(settings, speech_wav),
-        *_whisper(settings),
+        *_whisper(settings, speech_wav),
     ]
 
 
@@ -64,6 +64,8 @@ def _zipformer(settings: Settings, speech_wav: Path) -> BenchRow:
             tokens=tokens,
             sample_rate=settings.ws_sample_rate_hz,
             hotword_score=settings.hotword_score,
+            bpe_vocab=Path(settings.asr_zipformer_bpe_vocab_path),
+            bpe_model=Path(settings.asr_zipformer_bpe_model_path),
         )
         warmup_recognizer(recognizer, settings.ws_sample_rate_hz)
         samples, rate = _wav_float32(speech_wav, settings.ws_sample_rate_hz)
@@ -128,24 +130,78 @@ def _wav_float32(path: Path, dst_hz: int) -> tuple[np.ndarray, int]:
     return pcm16_to_float32(pcm), dst_hz
 
 
-def _whisper(settings: Settings) -> list[BenchRow]:
-    _module, version, import_reason = _module_version("faster_whisper")
+def _whisper(settings: Settings, speech_wav: Path) -> list[BenchRow]:
+    from models.asr_whisper import (
+        local_agreement_delay_ms,
+        resolve_whisper_dir,
+        transcribe_pcm16,
+        whisper_unavailable_reason,
+    )
+
+    _, version, import_reason = _module_version("faster_whisper")
     finalize = "asr.whisper_la2.finalize"
     stabilize = "asr.whisper_la2.stabilization"
-    if import_reason is not None:
+    blocked = whisper_unavailable_reason(settings)
+    if blocked is not None:
+        printed = version if import_reason is None else None
         return [
-            blocked_row(finalize, import_reason),
-            blocked_row(stabilize, import_reason),
+            blocked_row(finalize, blocked, version=printed),
+            blocked_row(stabilize, blocked, version=printed),
         ]
-    model = settings.bench_whisper_model.strip()
-    if not model:
+    model_dir = resolve_whisper_dir(settings)
+    if model_dir is None:
         return [
-            blocked_row(finalize, "missing_model", version=version),
-            blocked_row(stabilize, "missing_model", version=version),
+            blocked_row(finalize, "weights_unpinned", version=version),
+            blocked_row(stabilize, "weights_unpinned", version=version),
         ]
+    try:
+        samples, rate = _wav_float32(speech_wav, settings.ws_sample_rate_hz)
+        pcm = (np.clip(samples, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
+        drains: list[float] = []
+        text = ""
+        total = settings.bench_warmup + settings.bench_samples
+        for index in range(total):
+            decoded, elapsed = transcribe_pcm16(
+                pcm,
+                rate,
+                model_dir=model_dir,
+                dst_hz=settings.ws_sample_rate_hz,
+            )
+            if index >= settings.bench_warmup:
+                drains.append(elapsed)
+                text = decoded
+        _final, delay_ms, stable = local_agreement_delay_ms(
+            pcm,
+            rate,
+            model_dir=model_dir,
+            dst_hz=settings.ws_sample_rate_hz,
+        )
+    except (OSError, ValueError, RuntimeError, ImportError) as exc:
+        failed = f"whisper_failed:{type(exc).__name__}"
+        return [
+            blocked_row(finalize, failed, version=version),
+            blocked_row(stabilize, failed, version=version),
+        ]
+    extra: dict[str, object] = {
+        "text": text,
+        "wav": speech_wav.as_posix(),
+        "stable_prefix": stable,
+    }
     return [
-        blocked_row(finalize, "model_layout_unpinned", version=version),
-        blocked_row(stabilize, "model_layout_unpinned", version=version),
+        ok_row(
+            finalize,
+            version=f"{version};faster-whisper;tiny.en;cpu-int8",
+            p50_ms=percentile(drains, 50.0),
+            p95_ms=percentile(drains, 95.0),
+            extra=extra,
+        ),
+        ok_row(
+            stabilize,
+            version=f"{version};faster-whisper;tiny.en;la2",
+            p50_ms=delay_ms,
+            p95_ms=delay_ms,
+            extra=extra,
+        ),
     ]
 
 

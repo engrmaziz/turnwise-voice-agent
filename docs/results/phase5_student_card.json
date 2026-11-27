@@ -36,6 +36,6 @@
   "bio_onnx": "models/weights/nlu_bio.onnx",
   "int8": true,
   "size_mb": 0.008105278015136719,
-  "training_data": "training/nlu/asr_rows.jsonl",
-  "training_data_sha256": "857dd20c82fe1d7954f7281dd8854f1c5c5ecb52e89e77f70a74f3a0a4b487c6"
+  "training_data": "training/nlu/asr_train.jsonl",
+  "training_data_sha256": "45cde55fe6cb2e902c9da9f999775fef41e460c91ac0f517dc5646799ab62866"
 }

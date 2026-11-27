@@ -141,4 +141,6 @@ def default_eval_settings() -> Settings:
         log_level="WARNING",
         calendar_db_path="data/eval.sqlite",
         tts_backend="",
+        llm_backend="",
+        asr_backend="",
     )

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from nlp.hotwords import load_roster
 from nlp.nlu_vocab import INTENTS
 from training.nlu.generate import generate_scripts, load_jsonl
+from training.nlu.generate import main as generate_main
 from training.nlu.schema import CallerScript
 
 
@@ -53,3 +54,12 @@ def test_fixture_scripts_cover_every_intent() -> None:
     header = path.read_text(encoding="utf-8").splitlines()[0]
     assert "hand_authored" in header
     assert {script.intent for script in scripts} == set(INTENTS)
+
+
+def test_skip_fixture_does_not_rewrite(tmp_path: Path) -> None:
+    fixture = Path("training/nlu/fixture_scripts.jsonl")
+    before = fixture.read_bytes()
+    out = tmp_path / "scripts.jsonl"
+    assert generate_main(["--count", "24", "--out", str(out), "--skip-fixture"]) == 0
+    assert fixture.read_bytes() == before
+    assert out.is_file()

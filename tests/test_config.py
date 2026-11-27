@@ -45,8 +45,10 @@ def test_default_backchannel_list_excludes_yes(monkeypatch: pytest.MonkeyPatch) 
     assert settings.turn_model_enabled is True
     assert settings.nlu_model_path == ""
     assert settings.nlu_timeout_ms == 40
-    assert settings.phonetic_min_score == 0.82
-    assert settings.phonetic_margin == 0.05
+    assert settings.phonetic_min_score == 0.75
+    assert settings.phonetic_margin == 0.03
+    assert settings.hotword_score == 2.0
+    assert settings.asr_zipformer_bpe_model_path == "models/weights/zipformer/bpe.model"
     assert settings.regex_slots_enabled is False
     assert settings.repair_handoff_after == 3
     assert settings.tool_filler_after_ms == 300

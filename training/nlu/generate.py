@@ -219,14 +219,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fixture", type=Path, default=Path("training/nlu/fixture_scripts.jsonl"))
     parser.add_argument("--roster", type=Path, default=Path("data/doctors.txt"))
     parser.add_argument("--fixture-count", type=int, default=20)
+    parser.add_argument(
+        "--skip-fixture",
+        action="store_true",
+        help="Do not rewrite the committed 20-line CI fixture.",
+    )
     args = parser.parse_args(argv)
     roster = load_roster(args.roster)
     scripts = generate_scripts(count=args.count, roster=roster)
     write_jsonl(scripts, args.out)
-    write_jsonl(pick_fixture(scripts, args.fixture_count), args.fixture)
-    print(
-        f"source={SOURCE_LABEL} seed={SEED} wrote {len(scripts)} to {args.out} "
+    if not args.skip_fixture:
+        write_jsonl(pick_fixture(scripts, args.fixture_count), args.fixture)
+    fixture_note = (
         f"and {args.fixture_count} to {args.fixture}"
+        if not args.skip_fixture
+        else "fixture unchanged"
+    )
+    print(
+        f"source={SOURCE_LABEL} seed={SEED} wrote {len(scripts)} to {args.out} {fixture_note}"
     )
     return 0
 

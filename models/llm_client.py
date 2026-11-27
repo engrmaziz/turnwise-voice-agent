@@ -170,6 +170,12 @@ class LlmClient:
         self._hold = False
         self._ensure_workers()
 
+    def close(self) -> None:
+        for task in self._tasks:
+            task.cancel()
+        self._tasks.clear()
+        self._workers = 0
+
     def _ensure_queue(self) -> asyncio.PriorityQueue[_Job]:
         if self._queue is None:
             self._queue = asyncio.PriorityQueue()

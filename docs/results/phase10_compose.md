@@ -4,26 +4,35 @@ Operator: this machine. Compose file: `infra/docker-compose.yml`. Command: `dock
 
 - `docker compose version`: Docker Compose version v5.5.1
 - `TURNWISE_AUDIO_RETAIN` was not set true in compose.
+- Host publishes: HTTP `8010`, Prometheus `9080`, Jaeger OTLP `4217` (container still uses `8000` / `9090` / `4317`). Grafana host `3000` was already bound, so this boot used `TURNWISE_HOST_GRAFANA_PORT=3010`.
 
-## Result: fail
+## Result: pass
 
-The app image built. The in-container health probe is 200 with degraded flags. The full stack did not start: Prometheus never bound, Grafana stayed `Created`.
+Host probes against the remapped ports returned 200. In-container health is 200 with degraded flags (compose image does not ship Piper/Zipformer/Ollama).
 
-## Attempts
-
-| Attempt | Duration s | Exit | What happened |
-|---|---|---|---|
-| 1 | 23.095 | 1 | Image build failed: `.dockerignore` listed `client`, so `COPY client ./client` had no context. |
-| 2 | 352.309 | 1 | Image built after dropping `client` from `.dockerignore`. Jaeger host port 4317: `Bind for 127.0.0.1:4317 failed: port is already allocated`. |
-| 3 | 14.364 | 1 | Jaeger host 4317 unpublished (app still uses `http://jaeger:4317` on the compose network). App started `healthy`. Prometheus: `Bind for 127.0.0.1:9090 failed: port is already allocated`. Grafana never started. |
-
-## In-container health (attempt 3)
+## Host health
 
 ```
+GET http://127.0.0.1:8010/health
 STATUS 200
 {"status":"ok","service":"turnwise","degraded_llm":true,"degraded_tts":true,"degraded_asr":true}
 ```
 
-Host `curl http://127.0.0.1:8000/health` returned 404 (`{"detail":"Not Found"}`). Docker published `0.0.0.0:8000->8000`, so another process is likely already bound on the host. The number above is from `docker compose exec app` against `127.0.0.1:8000` inside the container.
+```
+GET http://127.0.0.1:9080/-/healthy
+STATUS 200
+```
 
-A fail is a fail. This file does not treat `docker compose config` as a boot.
+TCP connect to `127.0.0.1:4217` succeeded (Jaeger OTLP gRPC published as `4217:4317`).
+
+## Services
+
+| Service | Host bind | Status |
+|---|---|---|
+| app | `8010→8000` | healthy |
+| prometheus | `9080→9090` | up |
+| jaeger UI | `16686` | up |
+| jaeger OTLP | `4217→4317` | listening |
+| grafana | `3010→3000` (override; default 3000 was taken) | started after override |
+
+A fail is a fail. This file is a host-curl boot, not `docker compose config`.

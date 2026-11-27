@@ -10,7 +10,9 @@ import pytest
 from pydantic import ValidationError
 
 from nlp.nlu_features import tokenize
-from training.nlu.schema import GoldenRow
+from nlp.nlu_vocab import INTENTS
+from training.nlu.golden_sample import split_train_golden
+from training.nlu.schema import AsrTrainRow, GoldenRow
 
 
 def test_missing_asr_text_fails() -> None:
@@ -51,3 +53,23 @@ def test_fixture_rows_are_reviewed() -> None:
         assert row.reviewer
         assert row.asr_text
         assert len(row.bio_asr) == len(tokenize(row.asr_text))
+
+
+def test_split_train_golden_is_disjoint() -> None:
+    rows = [
+        AsrTrainRow(
+            script_id=f"s{index:04d}",
+            spoken_clean="hours",
+            asr_text="hours",
+            intent=INTENTS[index % len(INTENTS)],
+            bio_asr=["O"],
+        )
+        for index in range(32)
+    ]
+    train, golden = split_train_golden(rows, golden_n=24)
+    assert len(golden) == 24
+    assert len(train) == 8
+    train_ids = {row.script_id for row in train}
+    gold_ids = {row.script_id for row in golden}
+    assert train_ids.isdisjoint(gold_ids)
+    assert train_ids | gold_ids == {row.script_id for row in rows}

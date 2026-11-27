@@ -12,6 +12,7 @@ _ENCODER = _DIR / "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
 _DECODER = _DIR / "decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
 _JOINER = _DIR / "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
 _TOKENS = _DIR / "tokens.txt"
+_BPE_MODEL = _DIR / "bpe.model"
 
 
 def _row(name: str) -> dict[str, object]:
@@ -55,3 +56,12 @@ def test_on_disk_zipformer_tokens_matches_lock() -> None:
     assert len(expected) == 64
     verify_file(_TOKENS, expected)
     assert _TOKENS.stat().st_size == 5048
+
+
+@pytest.mark.skipif(not _BPE_MODEL.is_file(), reason="zipformer bpe.model not on this checkout")
+def test_on_disk_zipformer_bpe_model_matches_lock() -> None:
+    row = _row("zipformer_en_2023_06_26_bpe_model")
+    expected = str(row.get("sha256") or "")
+    assert len(expected) == 64
+    verify_file(_BPE_MODEL, expected)
+    assert _BPE_MODEL.stat().st_size == 244_865

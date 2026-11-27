@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from models.asr_pool import AsrPool
+from models.asr_zipformer import join_hotword_phrases, write_bpe_vocab
 from pipeline.audio.format import resample_mono_pcm16
 from tests.conftest import Harness
 
@@ -16,6 +17,18 @@ _WAV = Path("docs/results/bench/fixtures/north_wind.wav")
 
 def _zipformer_ready() -> bool:
     return importlib.util.find_spec("sherpa_onnx") is not None and _ENCODER.is_file()
+
+
+def test_write_bpe_vocab_from_tokens(tmp_path: Path) -> None:
+    tokens = tmp_path / "tokens.txt"
+    tokens.write_text("<blk> 0\n<unk> 1\n▁THE 2\n", encoding="utf-8")
+    dest = tmp_path / "bpe.vocab"
+    write_bpe_vocab(tokens, dest)
+    assert dest.read_text(encoding="utf-8") == "<unk>\t5.0\n▁THE\t4.0\n"
+
+
+def test_join_hotword_phrases_uppercases_roster() -> None:
+    assert join_hotword_phrases(("Dr. Khan", "Dr. Avery Lang")) == "KHAN/AVERY LANG"
 
 
 def test_zipformer_missing_encoder_raises(tmp_path: Path, harness: Harness) -> None:

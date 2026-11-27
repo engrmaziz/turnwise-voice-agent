@@ -65,3 +65,48 @@ url = "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023
 timeout_s = 60
 version = "en-2023-06-26"
 note = "Hashed on this host, 5048 bytes."
+
+[[model]]
+name = "zipformer_en_2023_06_26_bpe_model"
+path = "models/weights/zipformer/bpe.model"
+sha256 = "c53433de083c4a6ad12d034550ef22de68cec62c4f58932a7b6b8b2f1e743fa5"
+url = "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main/bpe.model"
+timeout_s = 60
+version = "en-2023-06-26"
+note = "Hashed on this host, 244865 bytes. SentencePiece model used to export sherpa bpe.vocab for hotword encoding. CI does not download this file."
+
+[[model]]
+name = "faster_whisper_tiny_en_model_bin"
+path = "models/weights/whisper/tiny.en/model.bin"
+sha256 = "1a5afae06a4db91c975c9a9d78be5cc110ee4ea022ad57d55492e4550e936b2a"
+url = "https://huggingface.co/Systran/faster-whisper-tiny.en/resolve/main/model.bin"
+timeout_s = 300
+version = "tiny.en"
+note = "Hashed from the Hugging Face hub snapshot already on this host, 75537502 bytes. CI does not download this file."
+
+[[model]]
+name = "faster_whisper_tiny_en_config"
+path = "models/weights/whisper/tiny.en/config.json"
+sha256 = "14b1b421a90349bc551b881461426b561a874049cb9e4c4864f2ca384f6a7cc5"
+url = "https://huggingface.co/Systran/faster-whisper-tiny.en/resolve/main/config.json"
+timeout_s = 60
+version = "tiny.en"
+note = "Hashed on this host, 2317 bytes."
+
+[[model]]
+name = "faster_whisper_tiny_en_tokenizer"
+path = "models/weights/whisper/tiny.en/tokenizer.json"
+sha256 = "929c5252409436dce1b38a75d1abbcb5e132d170d8e324e4e04ed915fa2d22df"
+url = "https://huggingface.co/Systran/faster-whisper-tiny.en/resolve/main/tokenizer.json"
+timeout_s = 60
+version = "tiny.en"
+note = "Hashed on this host, 2128466 bytes."
+
+[[model]]
+name = "faster_whisper_tiny_en_vocabulary"
+path = "models/weights/whisper/tiny.en/vocabulary.txt"
+sha256 = "ff77588746d3a2595d32ab5b69ffd7b95ce2441ac57533cb66fc3eb575a115cf"
+url = "https://huggingface.co/Systran/faster-whisper-tiny.en/resolve/main/vocabulary.txt"
+timeout_s = 60
+version = "tiny.en"
+note = "Hashed on this host, 422309 bytes."

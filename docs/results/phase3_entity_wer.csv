@@ -1,3 +1,3 @@
-bias,entity_wer,status
-off,0.8333333333333334,ok
-on,,unsupported
+bias,entity_wer,status,hotwords,hotword_score
+off,0.7333333333333333,ok,0,1.5
+on,0.7,ok,16,2.0

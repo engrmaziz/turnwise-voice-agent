@@ -30,6 +30,10 @@ def test_compare_is_blocked_without_weights(settings: Settings, tmp_path: Path) 
     entity = measure_entity_wer(configured, supports_hotwords=False)
     on_row = next(row for row in entity if row.name.endswith("bias_on"))
     assert on_row.reason == "unsupported"
+    hot = measure_entity_wer(configured, supports_hotwords=True)
+    hot_on = next(row for row in hot if row.name.endswith("bias_on"))
+    assert hot_on.status == "blocked"
+    assert hot_on.reason != "unsupported"
     run_phase3_benches(
         configured,
         results_dir=tmp_path,

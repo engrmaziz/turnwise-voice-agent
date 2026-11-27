@@ -1,37 +1,37 @@
 # ADR-003: How the local model stack will be chosen
 
-- Status: Proposed
-- Date: 2026-11-25
+- Status: Accepted
+- Date: 2026-11-27
 
 ## Context
 
-The voice path has to produce first audio quickly on consumer hardware, stay fully local, and bias recognition toward clinic names. Several stacks can do parts of this. Picking one before measuring this machine's real-time factor, time-to-first-token, and time-to-first-chunk would freeze a guess into config.
-
-No model name is a default in settings. The packages under `models/` have no worker implementation.
+The voice path has to produce first audio quickly on consumer hardware, stay fully local, and bias recognition toward clinic names. Eligibility still requires the five criteria below. This follow-up names the builds that met them on this host. Default settings stay empty so CI is weight-free.
 
 ## Decision
 
-A model is eligible for the hot path only when a benchmark on the target hardware shows all of the following:
+Hot-path names (operators opt in with env vars; defaults stay empty):
 
-1. Streaming or a measured finalize latency that fits the stage budget in `docs/ARCHITECTURE.md`. A decoder that waits on a multi-second agreement window does not fit the 700 ms time-to-first-audio target.
-2. Contextual biasing (hotwords or an equivalent context graph) is actually available in the pinned build. A model whose streaming mode is greedy-only does not satisfy the doctor-name requirement until that build grows a biasing path we have run.
-3. A CPU fallback exists for TTS, and for ASR if the GPU is busy with the language model. Pools are process-wide, not one model instance per call.
-4. The license allows local redistribution with the repo's download script.
-5. The measured contribution to time-to-first-audio is reported in `docs/benchmarks.md`. Phrase-cache hits are a separate row from cold synthesis. A `blocked` cell is not a measurement.
+| Role | Build | Evidence |
+|---|---|---|
+| ASR | sherpa-onnx 2.0.3 streaming Zipformer2 int8 `en-2023-06-26`, `modified_beam_search`, SentencePiece `bpe.model` vocab, `hotword_score=2.0` | ADR-006; entity WER JSON `docs/results/phase3_entity_wer.json` |
+| TTS | piper-tts 1.8.0 `en_US-amy-low` CPU | ADR-010 |
+| LLM | Ollama `qwen3.5:4b`, JSON-schema `format`, `think: false` | `docs/benchmarks.md` TTFT grammar-on p50 57.2 ms |
+| VAD | Silero ONNX | locked in `models/lock.toml` |
 
-Candidates may be benchmarked. Naming them here does not select them:
+Whisper+LA-2 (`faster-whisper` 1.2.1 `tiny.en` CPU int8) is an ablation, not the hot path: north-wind finalize p50 **490.8 ms** / p95 **529.8 ms**, last-window LA-2 delay **476.8 ms** (`docs/results/phase3_whisper.json`). That is not a 100 ms streaming budget.
 
-- Streaming Zipformer via sherpa-onnx, and a Whisper build with a local-agreement policy, for ASR.
-- Silero VAD for endpoint energy.
-- A WFST inverse-text-normalization grammar, plus a separate deterministic date resolver. Normalization and "next Tuesday" are different problems.
-- A small ONNX encoder for turn completion and for joint intent and slots.
-- A 3B–8B instruct model served with grammar-constrained decoding, for proposals and FAQ answers only (ADR-001).
-- Kokoro and Piper for speech synthesis.
+Criteria:
 
-NeMo text processing does not install from pip on native Windows because of Pynini. Benchmarks that need it run in WSL2 or the Compose image, not in a bare Windows venv.
+1. Zipformer is streaming. Compare finalize p50 173.7 ms still misses the 100 ms TARGET; Whisper LA-2 is slower. Zipformer stays the ASR name.
+2. Hotwords run on this pinned build (`modified_beam_search` + uppercase BPE phrases from the locked `bpe.model`). Entity error rate **0.733** (22/30) with bias off and **0.700** (21/30) with the roster as phrases at `hotword_score=2.0`. Sweep 1.0 / 1.5 / 2.0: only 2.0 moved a hypothesis (`JONAH HA` → `JONAH HALE`). JSON: `docs/results/phase3_entity_wer.json`.
+3. TTS and ASR both have CPU pools. Process-wide, not per call.
+4. Lock URLs in `models/lock.toml` cover Zipformer, Piper, Silero, and faster-whisper `tiny.en`.
+5. `docs/benchmarks.md` has ASR finalize, LLM TTFT, and TTS first-chunk `ok` cells.
+
+Env: `TURNWISE_ASR_BACKEND=zipformer`, `TURNWISE_TTS_BACKEND=piper`, `TURNWISE_LLM_BACKEND=ollama` after `uv sync --extra tts --extra asr --extra whisper` and `python scripts/download_models.py`.
 
 ## Consequences
 
-- Phase 1 ends when `docs/benchmarks.md` has numbers from this hardware, not when a dependency was added.
-- This ADR moves to Accepted only in a follow-up that records the chosen builds, their versions, and the measured numbers.
-- Emotion models are out of the critical path. Dialogue signals (repair count, repeated refusals, barge-in) are the fallback when an audio classifier times out.
+- Emotion stays off the critical path (ADR-011) until 30 scored call-like labels exist.
+- ADR-004 remains Proposed on the hardware-tier ADR itself; the machine is 16 GB+ from nvidia-smi, not from this file.
+- A blocked cell is still not a measurement.

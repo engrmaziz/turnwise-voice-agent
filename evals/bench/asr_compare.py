@@ -40,11 +40,14 @@ SynthFn = Callable[[str], bytes]
 
 
 def measure_asr_compare(settings: Settings) -> list[BenchRow]:
-    """Twenty Piper-spoken fixtures when Zipformer weights exist. Whisper stays unpinned."""
+    """Twenty Piper-spoken fixtures when Zipformer weights exist.
+
+    Whisper uses the pinned dir or a Hugging Face hub snapshot already on disk.
+    """
     if len(FIXTURES) != 20:
         raise RuntimeError("phase 3 compare set must be 20 fixtures")
     zip_rows = _zipformer_rows(settings)
-    return [*zip_rows, *_whisper_rows()]
+    return [*zip_rows, *_whisper_rows(settings)]
 
 
 def write_compare_json(rows: list[BenchRow], path: Path) -> None:
@@ -114,6 +117,8 @@ def _zipformer_rows(settings: Settings) -> list[BenchRow]:
             tokens=Path(settings.asr_zipformer_tokens_path),
             sample_rate=settings.ws_sample_rate_hz,
             hotword_score=settings.hotword_score,
+            bpe_vocab=Path(settings.asr_zipformer_bpe_vocab_path),
+            bpe_model=Path(settings.asr_zipformer_bpe_model_path),
         )
         warmup_recognizer(recognizer, settings.ws_sample_rate_hz)
         drains: list[float] = []
@@ -155,12 +160,94 @@ def _zipformer_rows(settings: Settings) -> list[BenchRow]:
     ]
 
 
-def _whisper_rows() -> list[BenchRow]:
+def _whisper_rows(settings: Settings) -> list[BenchRow]:
+    from models.asr_whisper import (
+        local_agreement_delay_ms,
+        resolve_whisper_dir,
+        transcribe_pcm16,
+        whisper_unavailable_reason,
+    )
+
     extra = _extra([], [])
+    blocked = whisper_unavailable_reason(settings)
+    if blocked is not None:
+        return [
+            _blocked("asr.compare.whisper_la2.finalize", blocked, extra=extra),
+            _blocked("asr.compare.whisper_la2.stabilization", blocked, extra=extra),
+        ]
+    synth = load_piper_synth(settings)
+    if synth is None:
+        return [
+            _blocked("asr.compare.whisper_la2.finalize", "tts_blocked", extra=extra),
+            _blocked("asr.compare.whisper_la2.stabilization", "tts_blocked", extra=extra),
+        ]
+    model_dir = resolve_whisper_dir(settings)
+    if model_dir is None:
+        return [
+            _blocked("asr.compare.whisper_la2.finalize", "weights_unpinned", extra=extra),
+            _blocked("asr.compare.whisper_la2.stabilization", "weights_unpinned", extra=extra),
+        ]
+    try:
+        drains: list[float] = []
+        delays: list[float] = []
+        texts: list[str] = []
+        for phrase in FIXTURES:
+            pcm = synth(phrase)
+            _text, drain_ms = transcribe_pcm16(
+                pcm,
+                settings.ws_sample_rate_hz,
+                model_dir=model_dir,
+                dst_hz=settings.ws_sample_rate_hz,
+            )
+            _hypo, delay_ms, _stable = local_agreement_delay_ms(
+                pcm,
+                settings.ws_sample_rate_hz,
+                model_dir=model_dir,
+                dst_hz=settings.ws_sample_rate_hz,
+            )
+            drains.append(drain_ms)
+            delays.append(delay_ms)
+            texts.append(_text)
+    except (OSError, ValueError, RuntimeError, TtsError, ImportError) as exc:
+        failed = f"whisper_failed:{type(exc).__name__}"
+        return [
+            _blocked("asr.compare.whisper_la2.finalize", failed, extra=extra),
+            _blocked("asr.compare.whisper_la2.stabilization", failed, extra=extra),
+        ]
+    extra = _extra(drains, texts)
+    extra["stabilization_delay_ms_p50"] = percentile(delays, 50.0)
+    extra["stabilization_delay_ms_p95"] = percentile(delays, 95.0)
+    extra["delay_basis"] = "la2_after_last_window"
+    version = _whisper_version()
     return [
-        _blocked("asr.compare.whisper_la2.finalize", "weights_unpinned", extra=extra),
-        _blocked("asr.compare.whisper_la2.stabilization", "weights_unpinned", extra=extra),
+        ok_row(
+            "asr.compare.whisper_la2.finalize",
+            version=version,
+            p50_ms=percentile(drains, 50.0),
+            p95_ms=percentile(drains, 95.0),
+            extra=extra,
+        ),
+        ok_row(
+            "asr.compare.whisper_la2.stabilization",
+            version=version,
+            p50_ms=percentile(delays, 50.0),
+            p95_ms=percentile(delays, 95.0),
+            extra=extra,
+        ),
     ]
+
+
+def _whisper_version() -> str:
+    version = "unknown"
+    try:
+        import faster_whisper
+
+        raw = getattr(faster_whisper, "__version__", None)
+        if raw is not None:
+            version = str(raw)
+    except ImportError:
+        version = "unknown"
+    return f"{version};faster-whisper;cpu-int8"
 
 
 def _blocked(name: str, reason: str, *, extra: dict[str, object] | None = None) -> BenchRow:

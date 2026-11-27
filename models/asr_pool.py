@@ -233,6 +233,8 @@ class AsrPool:
             tokens=tokens,
             sample_rate=settings.ws_sample_rate_hz,
             hotword_score=settings.hotword_score,
+            bpe_vocab=Path(settings.asr_zipformer_bpe_vocab_path),
+            bpe_model=Path(settings.asr_zipformer_bpe_model_path),
         )
         warmup_recognizer(recognizer, settings.ws_sample_rate_hz)
         pool = cls(
@@ -241,7 +243,7 @@ class AsrPool:
             metrics=metrics,
             transcript="",
             backend="zipformer",
-            supports_hotwords=False,
+            supports_hotwords=True,
         )
         pool.recognizer = recognizer
         pool.sample_rate_hz = settings.ws_sample_rate_hz

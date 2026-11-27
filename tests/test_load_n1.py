@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from evals.harness import default_eval_settings
-from evals.load import LoadError, pool_for_load, run_one_n, tts_path_label
+from evals.load import LoadError, llm_for_load, pool_for_load, run_one_n, tts_path_label
 from models.tts_pool import TtsPool
 
 
@@ -51,3 +51,15 @@ def test_piper_load_without_onnx_raises(tmp_path: Path) -> None:
     )
     with pytest.raises(LoadError, match="unavailable"):
         pool_for_load(settings)
+
+
+def test_llm_for_load_empty_is_unavailable() -> None:
+    client = llm_for_load(default_eval_settings())
+    assert client.available is False
+    client.close()
+
+
+def test_llm_for_load_unknown_raises() -> None:
+    settings = default_eval_settings().model_copy(update={"llm_backend": "not-a-backend"})
+    with pytest.raises(LoadError, match="unknown"):
+        llm_for_load(settings)

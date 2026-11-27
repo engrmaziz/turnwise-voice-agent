@@ -27,6 +27,10 @@ tts = [
 ]
 asr = [
     "sherpa-onnx>=2.0.3",
+    "sentencepiece>=0.1.99",
+]
+whisper = [
+    "faster-whisper>=1.1.0",
 ]
 
 [dependency-groups]
@@ -133,6 +137,9 @@ module = [
   "piper.*",
   "sherpa_onnx",
   "sherpa_onnx.*",
+  "sentencepiece",
+  "faster_whisper",
+  "faster_whisper.*",
 ]
 ignore_missing_imports = true
 
